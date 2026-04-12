@@ -74,6 +74,7 @@ class UserPatch(BaseModel):
     vacation_start: Optional[str] = None
     vacation_end: Optional[str] = None
     is_dormant: bool = None
+    accepted_tos: bool = None
 
 
 @router.post("/register")
@@ -175,14 +176,26 @@ def update_me(body: UserPatch, user=Depends(get_current_user), db=Depends(get_se
             raise HTTPException(status_code=400, detail="Invalid date format for vacation dates")
         if end <= start:
             raise HTTPException(status_code=400, detail="vacation_end must be after vacation_start")
+    accept_tos = raw.pop("accepted_tos", None)
     fields = {k: v for k, v in raw.items() if v is not None or (k in ("vacation_start", "vacation_end") and clearing)}
+    if accept_tos is True:
+        fields["_accept_tos"] = True
     if not fields:
         return user
     if fields.get("is_dormant") is False:
         fields["last_device_ping"] = "NOW()"
-    sets = ", ".join(f"{k} = :{k}" if k != "last_device_ping" else "last_device_ping = NOW()" for k in fields)
-    fields["uid"] = str(user["id"])
-    db.execute(text(f"UPDATE users SET {sets} WHERE id = :uid"), fields)
+    set_parts = []
+    for k in fields:
+        if k == "last_device_ping":
+            set_parts.append("last_device_ping = NOW()")
+        elif k == "_accept_tos":
+            set_parts.append("accepted_tos = TRUE")
+        else:
+            set_parts.append(f"{k} = :{k}")
+    sets = ", ".join(set_parts)
+    clean_fields = {k: v for k, v in fields.items() if k != "_accept_tos"}
+    clean_fields["uid"] = str(user["id"])
+    db.execute(text(f"UPDATE users SET {sets} WHERE id = :uid"), clean_fields)
     db.commit()
     from db import get_user
 

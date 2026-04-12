@@ -104,7 +104,7 @@ function switchTab(tabName) {
         btn.classList.toggle("active", btn.dataset.tab === tabName);
     });
     if (tabName === "activity") loadActivity();
-    if (tabName === "contacts") loadGroups();
+    if (tabName === "contacts") { loadGroups(); loadMutual(); }
     if (tabName === "settings") { loadFamily(); loadSensors(); loadApiKeys(); loadNetcore(); }
 }
 
@@ -358,6 +358,8 @@ async function loadMain() {
     if (vacEndEl) vacEndEl.value = me.vacation_end ? utcToLocalInput(me.vacation_end) : "";
     updateVacationStatus(me.vacation_start, me.vacation_end);
     startCountdown(me.checkin_time);
+
+    maybeShowTosGate(me, () => {});
 
     if (!me.has_paid) {
         const params = new URLSearchParams(window.location.search);
@@ -822,6 +824,17 @@ document.getElementById("notif-allow-btn").addEventListener("click", async () =>
     await registerPushToken();
 });
 
+function maybeShowTosGate(me, onAgree) {
+    if (me.accepted_tos !== false) return;
+    const gate = document.getElementById("tos-gate");
+    gate.style.display = "flex";
+    document.getElementById("tos-agree-btn").onclick = async () => {
+        await api("/users/me", { method: "PATCH", body: JSON.stringify({ accepted_tos: true }) });
+        gate.style.display = "none";
+        onAgree();
+    };
+}
+
 document.getElementById("notif-skip-btn").addEventListener("click", () => {
     localStorage.setItem("notif_prompt_seen", "1");
     document.getElementById("notif-prompt").style.display = "none";
@@ -882,6 +895,90 @@ async function loadBuddyStatus() {
         });
     } catch {}
 }
+
+async function loadMutual() {
+    const list = document.getElementById("mutual-list");
+    if (!list) return;
+    try {
+        const [pending, statusData] = await Promise.all([
+            api("/mutual/pending"),
+            api("/mutual/status"),
+        ]);
+        const received = pending.received || [];
+        const sent = pending.sent || [];
+        const buddies = statusData.buddies || [];
+        list.innerHTML = "";
+
+        received.forEach(inv => {
+            const card = document.createElement("div");
+            card.className = "mutual-card";
+            card.innerHTML = `<div class="mutual-card-info"><div class="mutual-card-name">${esc(inv.buddy_email || inv.email)}</div><div class="mutual-card-sub">Wants to be your buddy</div></div><div class="mutual-card-actions"><button class="btn btn-success" data-action="accept" data-pair-id="${esc(String(inv.pair_id || inv.id))}">Accept</button><button class="btn btn-outline" data-action="decline" data-pair-id="${esc(String(inv.pair_id || inv.id))}">Decline</button></div>`;
+            list.appendChild(card);
+        });
+
+        sent.forEach(inv => {
+            const card = document.createElement("div");
+            card.className = "mutual-card";
+            card.innerHTML = `<div class="mutual-card-info"><div class="mutual-card-name">${esc(inv.buddy_email || inv.email)}</div><div class="mutual-card-sub">Invite sent — waiting</div></div>`;
+            list.appendChild(card);
+        });
+
+        buddies.forEach(b => {
+            if (b.status === "active") {
+                const lastSeen = b.last_checkin ? "Last seen: " + timeAgo(b.last_checkin) : "Never checked in";
+                const card = document.createElement("div");
+                card.className = "mutual-card";
+                card.innerHTML = `<div class="mutual-card-info"><div class="mutual-card-name">${esc(b.buddy_name || b.buddy_email)}</div><div class="mutual-card-sub">${esc(lastSeen)}</div></div><div class="mutual-card-actions"><button class="btn btn-warning" data-action="pause" data-pair-id="${esc(String(b.pair_id))}">Pause</button><button class="btn btn-danger" data-action="end" data-pair-id="${esc(String(b.pair_id))}">End</button></div>`;
+                list.appendChild(card);
+            } else if (b.status === "paused") {
+                const card = document.createElement("div");
+                card.className = "mutual-card";
+                card.innerHTML = `<div class="mutual-card-info"><div class="mutual-card-name">${esc(b.buddy_name || b.buddy_email)}</div><div class="mutual-card-sub">Paused</div></div><div class="mutual-card-actions"><button class="btn btn-success" data-action="resume" data-pair-id="${esc(String(b.pair_id))}">Resume</button><button class="btn btn-danger" data-action="end" data-pair-id="${esc(String(b.pair_id))}">End</button></div>`;
+                list.appendChild(card);
+            }
+        });
+
+        if (list.children.length === 0) {
+            list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🤝</div>No buddies yet. Invite someone above.</div>';
+        }
+    } catch (e) {
+        list.innerHTML = `<p class="error-text">${esc(e.message)}</p>`;
+    }
+}
+
+document.getElementById("mutual-invite-btn").addEventListener("click", async () => {
+    const emailEl = document.getElementById("mutual-invite-email");
+    const errEl = document.getElementById("mutual-error");
+    const email = emailEl.value.trim();
+    errEl.textContent = "";
+    if (!email) { errEl.textContent = "Enter an email address"; return; }
+    try {
+        await api("/mutual/invite", { method: "POST", body: JSON.stringify({ email }) });
+        emailEl.value = "";
+        showToast("Invite sent", "success");
+        await loadMutual();
+    } catch (e) {
+        errEl.textContent = e.message;
+    }
+});
+
+document.getElementById("mutual-list").addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    const action = btn.dataset.action;
+    const pairId = btn.dataset.pairId;
+    if (!action || !pairId) return;
+    btn.disabled = true;
+    try {
+        await api(`/mutual/${action}/${pairId}`, { method: "POST" });
+        const messages = { accept: "Buddy accepted!", decline: "Invite declined", pause: "Paused", resume: "Resumed", end: "Buddy removed" };
+        showToast(messages[action] || "Done", "success");
+        await loadMutual();
+    } catch (e) {
+        showToast(e.message, "error");
+        btn.disabled = false;
+    }
+});
 
 let _currentGroupId = null;
 
@@ -989,27 +1086,41 @@ document.getElementById("close-group-detail-btn").addEventListener("click", () =
     document.getElementById("group-detail-modal").style.display = "none";
 });
 
+let _familyInviteToken = null;
+
+function _familyStatusDot(lastCheckin) {
+    if (!lastCheckin) return "dot-gray";
+    const days = (Date.now() - new Date(lastCheckin).getTime()) / 86400000;
+    if (days < 1) return "dot-green";
+    if (days < 2) return "dot-yellow";
+    return "dot-red";
+}
+
+function _familyLastSeenText(lastCheckin) {
+    if (!lastCheckin) return "Never checked in";
+    const days = (Date.now() - new Date(lastCheckin).getTime()) / 86400000;
+    if (days < 1) return "Checked in today";
+    return "Last seen " + timeAgo(lastCheckin);
+}
+
 async function loadFamily() {
     try {
         const data = await api("/family");
         const family = data.family;
         const createDiv = document.getElementById("family-create");
         const membersDiv = document.getElementById("family-members");
-        const actionsDiv = document.getElementById("family-actions");
-        const nameEl = document.getElementById("family-name");
         const joinDiv = document.getElementById("family-join");
 
         joinDiv.style.display = "none";
         createDiv.style.display = "none";
         membersDiv.style.display = "none";
-        actionsDiv.style.display = "none";
 
         const params = new URLSearchParams(window.location.search);
         const joinToken = params.get("join");
         if (joinToken) {
             try {
                 const preview = await api("/family/join/" + joinToken);
-                document.getElementById("family-join-name").textContent = "Invite to join: " + preview.family_name;
+                document.getElementById("family-join-name").textContent = "You've been invited to join: " + preview.family_name;
                 joinDiv.style.display = "block";
             } catch {
                 showToast("Invalid invite link", "error");
@@ -1019,20 +1130,45 @@ async function loadFamily() {
 
         if (!family) {
             createDiv.style.display = "block";
-            nameEl.textContent = "No family yet";
             return;
         }
 
-        nameEl.textContent = family.name || "Family";
+        const isAdmin = family.admin_user_id === (_currentUser && _currentUser.id);
+        document.getElementById("family-name-heading").textContent = family.name || "Family";
         membersDiv.style.display = "block";
-        actionsDiv.style.display = "block";
+
+        const adminControls = document.getElementById("family-admin-controls");
+        adminControls.style.display = isAdmin ? "block" : "none";
+
+        const disbandBtn = document.getElementById("disband-family-btn");
+        if (disbandBtn) disbandBtn.style.display = isAdmin ? "" : "none";
 
         const list = document.getElementById("family-member-list");
         list.innerHTML = "";
         (family.members || []).forEach(m => {
             const card = document.createElement("div");
             card.className = "family-member-card";
-            card.innerHTML = `<strong>${esc(m.name || m.email)}</strong> <span class="family-member-role">${m.role}</span>`;
+            const dotClass = _familyStatusDot(m.last_checkin);
+            const lastSeen = _familyLastSeenText(m.last_checkin);
+            const initial = (m.name || m.email || "?")[0].toUpperCase();
+            const isMemberAdmin = m.role === "admin";
+            const removeBtn = (isAdmin && !isMemberAdmin)
+                ? `<button class="family-member-remove" data-uid="${esc(m.id)}">Remove</button>`
+                : "";
+            card.innerHTML = `
+                <div class="family-member-left">
+                    <div class="family-member-avatar">${esc(initial)}</div>
+                    <div class="family-member-info">
+                        <div class="family-member-name">${esc(m.name || m.email)}</div>
+                        <div class="family-member-meta">
+                            <span class="family-status-dot ${dotClass}"></span>
+                            <span class="family-member-last-seen">${esc(lastSeen)}</span>
+                        </div>
+                    </div>
+                </div>
+                <span class="family-member-role">${esc(m.role)}</span>
+                ${removeBtn}
+            `;
             list.appendChild(card);
         });
     } catch {}
@@ -1055,8 +1191,9 @@ async function inviteFamilyMember() {
     if (!email) return;
     try {
         const data = await api("/family/invite", { method: "POST", body: JSON.stringify({ email }) });
+        _familyInviteToken = data.token;
         const linkEl = document.getElementById("family-invite-link");
-        linkEl.textContent = window.location.origin + "?join=" + data.token;
+        linkEl.textContent = window.location.origin + "/app?join=" + data.token;
         linkEl.style.display = "block";
         showToast("Invite created!", "success");
     } catch (e) {
@@ -1076,7 +1213,39 @@ async function joinFamily(token) {
 
 document.getElementById("create-family-btn")?.addEventListener("click", createFamily);
 document.getElementById("family-invite-btn")?.addEventListener("click", inviteFamilyMember);
+
+document.getElementById("family-copy-link-btn")?.addEventListener("click", async () => {
+    if (!_familyInviteToken) {
+        showToast("Invite someone first to get a shareable link", "error");
+        return;
+    }
+    const link = window.location.origin + "/app?join=" + _familyInviteToken;
+    try {
+        await navigator.clipboard.writeText(link);
+        showToast("Invite link copied!", "success");
+    } catch {
+        const linkEl = document.getElementById("family-invite-link");
+        linkEl.textContent = link;
+        linkEl.style.display = "block";
+        showToast("Link shown below — copy it manually", "success");
+    }
+});
+
+document.getElementById("family-member-list")?.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".family-member-remove");
+    if (!btn) return;
+    const uid = btn.dataset.uid;
+    if (!uid) return;
+    if (!confirm("Remove this member from the family?")) return;
+    try {
+        await api("/family/remove/" + uid, { method: "POST" });
+        showToast("Member removed", "success");
+        loadFamily();
+    } catch (e) { showToast(e.message, "error"); }
+});
+
 document.getElementById("leave-family-btn")?.addEventListener("click", async () => {
+    if (!confirm("Leave this family?")) return;
     try {
         await api("/family/leave", { method: "POST" });
         showToast("Left family", "success");

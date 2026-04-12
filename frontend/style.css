@@ -1130,20 +1130,175 @@ label input { margin-top: 8px; }
     margin-bottom: 12px;
 }
 
+.family-no-plan {
+    text-align: center;
+    padding: 8px 0 4px;
+}
+
+.family-no-plan h4 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    text-transform: none;
+    letter-spacing: 0;
+    margin-bottom: 6px;
+}
+
+.family-no-plan p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+
+.family-heading {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+    text-transform: none;
+    letter-spacing: -0.2px;
+    margin-bottom: 12px;
+}
+
 .family-member-card {
     background: var(--bg);
+    border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     padding: 10px 12px;
     margin-bottom: 8px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 10px;
 }
 
+.family-member-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+}
+
+.family-member-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--accent-glow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--accent);
+    flex-shrink: 0;
+}
+
+.family-member-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.family-member-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.family-member-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.family-member-last-seen {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.family-status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 6px;
+    flex-shrink: 0;
+}
+
+.family-status-dot.dot-green  { background: #4ecca3; }
+.family-status-dot.dot-yellow { background: #f5a623; }
+.family-status-dot.dot-red    { background: #e94560; }
+.family-status-dot.dot-gray   { background: #55556a; }
+
 .family-member-role {
-    font-size: 0.75rem;
-    opacity: 0.7;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.08);
+    color: var(--text-secondary);
     text-transform: uppercase;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+}
+
+.family-member-remove {
+    width: auto;
+    padding: 5px 10px;
+    font-size: 12px;
+    background: rgba(233,69,96,0.12);
+    border: 1px solid rgba(233,69,96,0.25);
+    color: var(--accent);
+    border-radius: 6px;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.family-member-remove:hover {
+    background: var(--accent);
+    color: #fff;
+}
+
+.family-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin: 16px 0 8px;
+}
+
+.family-copy-link-btn {
+    width: auto;
+    padding: 8px 14px;
+    font-size: 13px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    margin: 0;
+}
+
+.family-copy-link-btn:hover {
+    border-color: var(--border-hover);
+    color: var(--text);
+    background: var(--surface-2);
+}
+
+.family-action-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+}
+
+.family-action-row button {
+    flex: 1;
+    min-width: 0;
 }
 
 .family-invite-link {
@@ -1872,4 +2027,149 @@ label input { margin-top: 8px; }
 
 .hcl-hit    { background: #4ecca3; }
 .hcl-miss   { background: rgba(255,59,59,0.25); }
+
+#tos-gate {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+#tos-gate-card {
+    background: #111;
+    color: #f0f0f5;
+    max-width: 440px;
+    width: 100%;
+    padding: 32px;
+    border-radius: 12px;
+    border: 1px solid #1e1e32;
+}
+
+#tos-gate-card h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: #f0f0f5;
+}
+
+#tos-gate-card p {
+    font-size: 15px;
+    line-height: 1.6;
+    color: #8888a0;
+    margin-bottom: 24px;
+}
+
+#tos-gate-card a {
+    color: #4ecca3;
+    text-decoration: none;
+}
+
+#tos-gate-card a:hover {
+    text-decoration: underline;
+}
+
+#tos-agree-btn {
+    width: 100%;
+    padding: 14px;
+    background: #e94560;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+#tos-agree-btn:hover {
+    background: #d13b55;
+}
+
+.mutual-invite-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.mutual-invite-row input {
+    flex: 1;
+}
+
+.mutual-card {
+    background: #1a1a2e;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.mutual-card-info {
+    flex: 1;
+}
+
+.mutual-card-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #F5F5F5;
+}
+
+.mutual-card-sub {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.mutual-card-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.btn-success {
+    background: #4ecca3;
+    color: #0a0a14;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-success:hover {
+    background: #3db891;
+}
+
+.btn-warning {
+    background: #f5a623;
+    color: #0a0a14;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-warning:hover {
+    background: #e09010;
+}
+
+.btn-danger {
+    background: #e94560;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-danger:hover {
+    background: #d13b55;
+}
 .hcl-future { background: rgba(255,255,255,0.08); }

@@ -128,6 +128,20 @@ footer{border-top:1px solid var(--border);padding:56px 0;position:relative;z-ind
 .foot-copy{font-size:11px;color:rgba(255,255,255,0.18);letter-spacing:0.04em}
 .fade-up{opacity:0;transform:translateY(20px);transition:opacity .65s ease,transform .65s ease}
 .fade-up.vis{opacity:1;transform:translateY(0)}
+.form-section{padding:96px 0;border-top:1px solid var(--border)}
+.form-section h2{margin-bottom:12px}
+.form-section .sec-sub{margin-bottom:40px}
+.form-wrap{max-width:520px}
+.form-row{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+.form-row label{font-size:11px;letter-spacing:0.12em;color:var(--muted);text-transform:uppercase}
+.form-input{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:12px 16px;font-family:'DM Mono',monospace;font-size:13px;color:var(--text);outline:none;transition:border-color .15s;width:100%}
+.form-input:focus{border-color:rgba(255,59,59,0.4)}
+textarea.form-input{resize:vertical;min-height:120px}
+.form-inline{display:flex;gap:10px}
+.form-inline .form-input{flex:1}
+.form-msg{font-size:12px;margin-top:10px;min-height:18px}
+.form-msg.ok{color:var(--green)}
+.form-msg.err{color:var(--red)}
 @media(max-width:960px){
   .c{padding:0 28px}nav{padding:14px 28px}
   .nav-links a:not(.nav-cta){display:none}
@@ -313,6 +327,51 @@ footer{border-top:1px solid var(--border);padding:56px 0;position:relative;z-ind
 </section>
 </div>
 
+<div class="c">
+<section id="waitlist" class="form-section">
+  <div class="fade-up">
+    <div class="sec-eyebrow">Early access</div>
+    <h2>Get notified<br>when we launch.</h2>
+    <p class="sec-sub">Drop your email and we'll let you know when new features and integrations ship.</p>
+    <div class="form-wrap">
+      <form id="waitlistForm">
+        <div class="form-inline">
+          <input class="form-input" type="email" id="waitlistEmail" placeholder="you@example.com" required>
+          <button type="submit" class="btn-red">Join waitlist</button>
+        </div>
+        <p class="form-msg" id="waitlistMsg"></p>
+      </form>
+    </div>
+  </div>
+</section>
+
+<section id="contact-form" class="form-section">
+  <div class="fade-up">
+    <div class="sec-eyebrow">Get in touch</div>
+    <h2>Have a question<br>or a request?</h2>
+    <p class="sec-sub">We read every message. Expect a reply within 24 hours.</p>
+    <div class="form-wrap">
+      <form id="contactForm">
+        <div class="form-row">
+          <label for="contactName">Name</label>
+          <input class="form-input" type="text" id="contactName" placeholder="Your name" required>
+        </div>
+        <div class="form-row">
+          <label for="contactEmail">Email</label>
+          <input class="form-input" type="email" id="contactEmail" placeholder="you@example.com" required>
+        </div>
+        <div class="form-row">
+          <label for="contactMessage">Message</label>
+          <textarea class="form-input" id="contactMessage" placeholder="What's on your mind?" required></textarea>
+        </div>
+        <button type="submit" class="btn-red">Send message</button>
+        <p class="form-msg" id="contactMsg"></p>
+      </form>
+    </div>
+  </div>
+</section>
+</div>
+
 <footer>
   <div class="foot-inner">
     <div>
@@ -363,6 +422,36 @@ var obs=new IntersectionObserver(function(entries){
   entries.forEach(function(e){if(e.isIntersecting){e.target.classList.add('vis');obs.unobserve(e.target)}});
 },{threshold:0.08});
 document.querySelectorAll('.fade-up').forEach(function(el){obs.observe(el)});
+
+document.getElementById('waitlistForm').addEventListener('submit',function(e){
+  e.preventDefault();
+  var email=document.getElementById('waitlistEmail').value.trim();
+  var msg=document.getElementById('waitlistMsg');
+  msg.className='form-msg';msg.textContent='';
+  fetch('/waitlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email})})
+    .then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d}})})
+    .then(function(res){
+      if(res.ok){msg.className='form-msg ok';msg.textContent="You're on the list.";document.getElementById('waitlistEmail').value='';}
+      else{msg.className='form-msg err';msg.textContent=res.data.detail||'Something went wrong.';}
+    })
+    .catch(function(){msg.className='form-msg err';msg.textContent='Something went wrong.';});
+});
+
+document.getElementById('contactForm').addEventListener('submit',function(e){
+  e.preventDefault();
+  var name=document.getElementById('contactName').value.trim();
+  var email=document.getElementById('contactEmail').value.trim();
+  var message=document.getElementById('contactMessage').value.trim();
+  var msg=document.getElementById('contactMsg');
+  msg.className='form-msg';msg.textContent='';
+  fetch('/contact-form',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,email:email,message:message})})
+    .then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d}})})
+    .then(function(res){
+      if(res.ok){msg.className='form-msg ok';msg.textContent="Message sent. We'll be in touch.";document.getElementById('contactForm').reset();}
+      else{msg.className='form-msg err';msg.textContent=res.data.detail||'Something went wrong.';}
+    })
+    .catch(function(){msg.className='form-msg err';msg.textContent='Something went wrong.';});
+});
 </script>
 </body>
 </html>

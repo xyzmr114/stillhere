@@ -14,6 +14,14 @@
 </head>
 <body>
     <div id="app">
+        <div id="tos-gate" style="display:none">
+            <div id="tos-gate-card">
+                <h2>Terms of Service Update</h2>
+                <p>Still Here collects your check-in data and shares it with your emergency contacts when you miss a check-in. Your data is stored securely and never sold. By using this service you agree to our <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.</p>
+                <button id="tos-agree-btn">I Agree</button>
+            </div>
+        </div>
+
         <header id="app-header">
             <h1>Still Here</h1>
             <button id="header-back-btn" class="icon-btn" style="display:none">←</button>
@@ -333,6 +341,15 @@
                             <button id="close-group-detail-btn" class="btn-secondary" style="margin-top:8px">Close</button>
                         </div>
                     </div>
+                    <div id="mutual-section" style="margin-top:24px">
+                        <h3 class="section-title">Mutual Check-ins</h3>
+                        <div class="mutual-invite-row">
+                            <input type="email" id="mutual-invite-email" placeholder="Invite by email">
+                            <button id="mutual-invite-btn">Invite</button>
+                        </div>
+                        <p id="mutual-error" class="error-text"></p>
+                        <div id="mutual-list"></div>
+                    </div>
                 </div>
 
                 <div id="tab-activity" class="tab-panel">
@@ -435,28 +452,41 @@
                     </div>
                     <div class="settings-card" id="family-section">
                         <h3 class="section-title">Family</h3>
-                        <div id="family-info">
-                            <p id="family-name" class="profile-field"></p>
+
+                        <div id="family-join" style="display:none">
+                            <p id="family-join-name" style="margin-bottom:12px;font-size:14px;color:var(--text-secondary)"></p>
+                            <button id="family-join-btn">Join Family</button>
                         </div>
+
                         <div id="family-create" style="display:none">
+                            <div class="family-no-plan">
+                                <h4>Create a family plan</h4>
+                                <p>Keep up to 6 people in the loop. Each member gets check-in visibility for everyone.</p>
+                            </div>
                             <input type="text" id="family-name-input" placeholder="Family name" maxlength="100">
                             <button id="create-family-btn">Create Family</button>
                         </div>
+
                         <div id="family-members" style="display:none">
+                            <div id="family-name-heading" class="family-heading"></div>
                             <div id="family-member-list"></div>
-                            <div class="family-invite-row">
-                                <input type="email" id="family-invite-email" placeholder="Email to invite">
-                                <button id="family-invite-btn">Invite</button>
+
+                            <div id="family-admin-controls" style="display:none">
+                                <div class="family-section-label">Invite member</div>
+                                <div class="family-invite-row">
+                                    <input type="email" id="family-invite-email" placeholder="Email to invite">
+                                    <button id="family-invite-btn" style="width:auto;padding:12px 16px">Invite</button>
+                                </div>
+                                <div id="family-invite-link" class="family-invite-link" style="display:none"></div>
+                                <div style="margin-top:8px">
+                                    <button id="family-copy-link-btn" class="family-copy-link-btn">Copy invite link</button>
+                                </div>
                             </div>
-                            <div id="family-invite-link" class="family-invite-link" style="display:none"></div>
-                        </div>
-                        <div id="family-join" style="display:none">
-                            <p id="family-join-name"></p>
-                            <button id="family-join-btn">Join Family</button>
-                        </div>
-                        <div id="family-actions" style="display:none">
-                            <button id="leave-family-btn" class="btn-secondary">Leave Family</button>
-                            <button id="disband-family-btn" class="btn-danger" style="display:none">Disband Family</button>
+
+                            <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+                                <button id="leave-family-btn" class="btn-secondary" style="flex:1">Leave family</button>
+                                <button id="disband-family-btn" class="btn-danger" style="display:none;flex:1">Disband</button>
+                            </div>
                         </div>
                     </div>
                     <div class="settings-card" id="sensors-section">

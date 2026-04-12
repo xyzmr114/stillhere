@@ -1,12 +1,13 @@
 import os
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from pydantic import BaseModel, EmailStr
 
 from limiter import limiter
 from routes import users, checkin, contacts, confirm, demo, mutual, groups, portal, family, webhooks, api_keys, stripe_payments, contact, netcore
@@ -62,6 +63,53 @@ app.include_router(contact.router)
 app.include_router(netcore.router)
 
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
+
+
+class WaitlistIn(BaseModel):
+    email: EmailStr
+
+class ContactFormIn(BaseModel):
+    name: str
+    email: EmailStr
+    message: str
+
+@app.post("/waitlist")
+def join_waitlist(body: WaitlistIn):
+    from db import SessionLocal
+    from sqlalchemy import text
+    db = SessionLocal()
+    try:
+        db.execute(text("INSERT INTO waitlist (email) VALUES (:email) ON CONFLICT (email) DO NOTHING"), {"email": body.email})
+        db.commit()
+    finally:
+        db.close()
+    return {"ok": True}
+
+@app.post("/contact-form")
+def submit_contact_form(body: ContactFormIn):
+    from db import SessionLocal
+    from sqlalchemy import text
+    db = SessionLocal()
+    try:
+        db.execute(
+            text("INSERT INTO contact_messages (name, email, message) VALUES (:name, :email, :message)"),
+            {"name": body.name, "email": body.email, "message": body.message},
+        )
+        db.commit()
+    finally:
+        db.close()
+    try:
+        from config import settings
+        if settings.resend_api_key:
+            from services.email_svc import _send_email
+            _send_email(
+                "hello@stillherehq.com",
+                f"New contact message from {body.name}",
+                f"<p><b>From:</b> {body.name} &lt;{body.email}&gt;</p><p>{body.message}</p>",
+            )
+    except Exception:
+        pass
+    return {"ok": True}
 
 
 @app.get("/tester")
