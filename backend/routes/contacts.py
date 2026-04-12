@@ -1,0 +1,68 @@
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+from db import get_session, get_contacts, add_contact, update_contact, delete_contact, create_portal_token
+from dependencies import get_current_user
+
+router = APIRouter(prefix="/contacts", tags=["contacts"])
+
+
+class ContactIn(BaseModel):
+    name: str
+    phone: str
+    email: str = None
+    priority: int = 1
+
+
+class ContactPatch(BaseModel):
+    name: str = None
+    phone: str = None
+    email: str = None
+    priority: int = None
+
+
+@router.get("")
+def list_contacts(user=Depends(get_current_user), db=Depends(get_session)):
+    return get_contacts(db, str(user["id"]))
+
+
+@router.post("")
+def create_contact(body: ContactIn, user=Depends(get_current_user), db=Depends(get_session)):
+    cid = add_contact(
+        db,
+        str(user["id"]),
+        body.name,
+        body.phone,
+        body.email,
+        body.priority,
+    )
+    portal_token = create_portal_token(db, cid)
+    if body.email:
+        try:
+            from services.email_svc import send_contact_welcome_email
+            send_contact_welcome_email(body.email, body.name, user["name"], portal_token)
+        except Exception:
+            pass
+    return {"id": cid, "portal_token": portal_token, "message": "Contact added"}
+
+
+@router.patch("/{contact_id}")
+def patch_contact(contact_id: str, body: ContactPatch, user=Depends(get_current_user), db=Depends(get_session)):
+    fields = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not fields:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    update_contact(db, contact_id, str(user["id"]), **fields)
+    return {"message": "Contact updated"}
+
+
+@router.delete("/{contact_id}")
+def remove_contact(contact_id: str, user=Depends(get_current_user), db=Depends(get_session)):
+    delete_contact(db, contact_id, str(user["id"]))
+    return {"message": "Contact deleted"}
+
+
+@router.get("/circle")
+def trusted_circle(user=Depends(get_current_user), db=Depends(get_session)):
+    from db import get_trusted_circle
+    circle = get_trusted_circle(db, str(user["id"]))
+    return {"contacts": circle, "total": len(circle), "message": f"{len(circle)} {'person is' if len(circle) == 1 else 'people are'} watching out for you"}

@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+celery[redis]
+redis
+boto3
+pydantic-settings
+python-jose[cryptography]
+bcrypt
+httpx
+firebase-admin
+email-validator
+resend
+twilio
+stripe
