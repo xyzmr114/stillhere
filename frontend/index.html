@@ -270,6 +270,34 @@
                             <button id="sensor-cancel-btn" class="btn-secondary">Cancel</button>
                         </div>
                     </div>
+                    <div class="settings-card" id="netcore-section">
+                        <h3 class="section-title">Private Access · Netcore</h3>
+                        <p class="settings-hint">Share encrypted peer-to-peer access to your Still Here instance with trusted contacts — no public URL needed.</p>
+                        <div id="netcore-status" class="netcore-status"></div>
+                        <div id="netcore-identity-block" style="display:none">
+                            <p class="settings-hint">Your peer identity — share this with contacts so they can connect directly to your instance.</p>
+                            <div class="netcore-identity-box">
+                                <pre id="netcore-identity-json"></pre>
+                                <button id="netcore-copy-btn" class="btn-secondary">Copy</button>
+                            </div>
+                            <p class="settings-hint" style="margin-top:12px">Your internal IP: <code id="netcore-internal-ip"></code> — contacts access your app at <code id="netcore-app-url"></code></p>
+                        </div>
+                        <div id="netcore-peers-block" style="display:none;margin-top:16px">
+                            <h4 style="margin:0 0 8px;font-size:13px;opacity:.6">Connected Peers</h4>
+                            <div id="netcore-peer-list"></div>
+                        </div>
+                        <div style="margin-top:16px">
+                            <button id="netcore-add-btn" class="btn-secondary" style="display:none">Add Peer</button>
+                        </div>
+                        <div id="netcore-add-form" style="display:none;margin-top:12px">
+                            <p class="settings-hint">Paste a peer's identity JSON to connect with them.</p>
+                            <textarea id="netcore-peer-json" rows="5" placeholder='{"version":2,"pub_key_b36":"...","data_key_b36":"..."}'></textarea>
+                            <div style="display:flex;gap:8px;margin-top:8px">
+                                <button id="netcore-peer-submit-btn">Connect</button>
+                                <button id="netcore-peer-cancel-btn" class="btn-secondary">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="settings-card" id="api-keys-section">
                         <h3 class="section-title">API Keys</h3>
                         <p class="settings-hint">Generate keys for external services to check in on your behalf.</p>

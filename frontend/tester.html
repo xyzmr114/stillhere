@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Still Here — Escalation Tester</title>
+<meta name="description" content="Walk through a full Still Here escalation — from daily check-in to emergency contact alert. Interactive, no login required.">
+<meta property="og:title" content="Still Here — Escalation Tester">
+<meta property="og:description" content="See exactly what happens when someone misses a check-in. No login. No drama.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#080808;--surface:#111111;--surface2:#161616;--border:rgba(255,255,255,0.08);--text:#F5F5F5;--dim:rgba(255,255,255,0.55);--muted:rgba(255,255,255,0.25);--green:#4ecca3;--red:#FF3B3B;--redBrand:#FF3B3B;--redDeep:#E02424;--yellow:#f5a623;--redG:rgba(220,38,38,0.15);--greenG:rgba(78,204,163,.15);--yellowG:rgba(245,166,35,.15)}
+body{font-family:'DM Mono',monospace;background:#080808;color:var(--text);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 35% 65%,rgba(220,38,38,0.09) 0%,transparent 55%);pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;inset:0;opacity:0.03;mix-blend-mode:overlay;pointer-events:none;z-index:1;background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyMDAnIGhlaWdodD0nMjAwJz48ZmlsdGVyIGlkPSduJz48ZmVUdXJidWxlbmNlIHR5cGU9J2ZyYWN0YWxOb2lzZScgYmFzZUZyZXF1ZW5jeT0nMC45JyBudW1PY3RhdmVzPSc0JyBzdGl0Y2hUaWxlcz0nc3RpdGNoJy8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9JzIwMCcgaGVpZ2h0PScyMDAnIGZpbHRlcj0ndXJsKCUyM24pJy8+PC9zdmc+")}
+.wrap{position:relative;z-index:2;max-width:960px;margin:0 auto;padding:24px 20px 60px}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;flex-wrap:wrap;gap:12px}
+.logo{font-family:'Fraunces',serif;font-size:22px;font-weight:800;color:var(--red);letter-spacing:-0.5px}
+.badge{font-family:'DM Mono',monospace;font-size:11px;padding:4px 14px;border-radius:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.4);letter-spacing:0.12em}
+.hdr-right{display:flex;align-items:center;gap:14px}
+.btn-reset{font-family:'DM Mono',monospace;font-size:11px;padding:4px 14px;border-radius:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.4);letter-spacing:0.12em;cursor:pointer;transition:all .2s}
+.btn-reset:hover{opacity:0.7}
+.step-ind{font-family:'DM Mono',monospace;font-size:13px;color:rgba(255,255,255,0.25)}
+.offline-notice{text-align:center;padding:8px;background:var(--yellowG);border:1px solid rgba(245,166,35,.2);border-radius:4px;color:var(--yellow);font-size:12px;margin-bottom:16px;display:none;letter-spacing:0.05em}
+.timeline{display:flex;align-items:center;gap:0;justify-content:center;margin-bottom:48px;padding:20px 0;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tl-node{display:flex;flex-direction:column;align-items:center;position:relative;padding:0 12px 8px}
+.tl-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.25);white-space:nowrap;transition:color .3s}
+.tl-node.active .tl-label{color:#FF3B3B}
+.tl-node.done .tl-label{color:rgba(255,255,255,0.5)}
+.tl-line{width:32px;height:1px;background:rgba(255,255,255,0.1);flex-shrink:0;margin-bottom:18px;transition:background .3s}
+.tl-line.done{background:rgba(255,255,255,0.3)}
+.main{display:flex;align-items:center;gap:0;position:relative}
+.sep{width:1px;background:rgba(255,255,255,0.07);align-self:stretch;margin:20px 0}
+.phone-col{flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:40px}
+.desc-col{flex:1;padding:40px;position:relative;min-height:480px;display:flex;flex-direction:column;justify-content:center}
+.phone{width:260px;height:480px;border-radius:36px;background:#111111;border:1px solid rgba(255,255,255,0.08);box-shadow:0 0 80px rgba(220,38,38,0.18),0 0 20px rgba(220,38,38,0.08);position:relative;overflow:hidden;flex-shrink:0}
+.phone-notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:100px;height:24px;background:#000;border-radius:0 0 16px 16px;z-index:10}
+.phone-screen{position:absolute;inset:8px;border-radius:28px;background:#080808;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 16px;transition:opacity .4s}
+.phone-screen.fading{opacity:0;transform:scale(.97)}
+.step-watermark{font-family:'Fraunces',serif;font-size:140px;font-weight:900;color:rgba(255,255,255,0.07);position:absolute;top:20px;left:20px;line-height:1;pointer-events:none;user-select:none}
+.ps-greeting{font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px}
+.ps-sub{font-size:12px;color:var(--muted);margin-bottom:24px}
+.ps-checkin-btn{width:100px;height:100px;border-radius:50%;background:var(--red);color:#fff;font-size:13px;font-weight:700;border:none;cursor:default;box-shadow:0 0 30px rgba(233,69,96,.2);display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.2}
+.ps-notif{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;width:100%;text-align:left}
+.ps-notif-app{font-size:10px;font-weight:600;color:var(--red);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.ps-notif-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px}
+.ps-notif-body{font-size:11px;color:var(--dim)}
+.ps-check-icon{width:64px;height:64px;margin-bottom:12px}
+.ps-check-icon svg{width:100%;height:100%}
+.check-path{stroke-dasharray:100;stroke-dashoffset:100;animation:drawCheck .6s ease forwards}
+@keyframes drawCheck{to{stroke-dashoffset:0}}
+.ps-big-text{font-size:15px;font-weight:700;color:var(--green);text-align:center}
+.ps-clock{font-size:32px;font-weight:200;color:var(--yellow);margin-bottom:8px;font-variant-numeric:tabular-nums}
+.ps-small-text{font-size:11px;color:var(--muted);text-align:center;line-height:1.5}
+.ps-split{display:flex;flex-direction:column;gap:10px;width:100%;align-items:center}
+.ps-phone-mini{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;width:100%;text-align:center}
+.ps-phone-mini .pm-label{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+.ps-phone-mini .pm-body{font-size:11px;color:var(--dim);line-height:1.4}
+.pm-label.alice{color:var(--muted)}.pm-label.bob{color:var(--green)}
+.ps-sms{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:10px;color:var(--dim);line-height:1.4;width:100%;text-align:left}
+.ps-sms-from{color:var(--green);font-weight:600;font-size:10px;margin-bottom:2px}
+.ps-choice-row{display:flex;gap:8px;width:100%;margin-top:8px}
+.ps-choice-btn{flex:1;padding:8px 6px;border-radius:10px;font-size:10px;font-weight:600;border:1px solid var(--border);background:var(--surface2);color:var(--dim);cursor:default;text-align:center;line-height:1.3}
+.ps-choice-btn.safe{border-color:rgba(78,204,163,.3);color:var(--green)}
+.ps-choice-btn.cant{border-color:rgba(233,69,96,.3);color:var(--red)}
+.ps-confirm-screen .ps-big-text{margin-bottom:8px}
+.ps-welfare{border:1px solid rgba(233,69,96,.2);border-radius:12px;padding:14px;text-align:center;background:rgba(233,69,96,.05)}
+.ps-welfare-icon{font-size:28px;margin-bottom:6px;opacity:.7}
+.ps-welfare-title{font-size:13px;font-weight:700;color:var(--red);margin-bottom:4px}
+.ps-welfare-sub{font-size:10px;color:var(--muted);line-height:1.4}
+.desc{max-width:420px;text-align:left}
+.desc-title{font-family:'Fraunces',serif;font-size:40px;font-weight:600;color:#F5F5F5;line-height:1.15;margin-bottom:16px}
+.desc-body{font-family:'DM Mono',monospace;font-size:15px;color:rgba(255,255,255,0.55);line-height:1.7;max-width:420px;margin-bottom:24px}
+.desc-teaser{font-family:'DM Mono',monospace;font-size:13px;color:var(--yellow);font-weight:500;margin-top:12px;font-style:italic}
+.controls{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+.btn-next{font-family:'DM Mono',monospace;font-size:13px;letter-spacing:0.1em;padding:12px 28px;background:#E02424;color:white;border:none;cursor:pointer;border-radius:4px;transition:all .2s}
+.btn-next:hover{background:#FF3B3B;box-shadow:0 0 20px rgba(220,38,38,0.4)}
+.btn-next.green{background:#4ecca3}
+.btn-next.green:hover{box-shadow:0 0 20px rgba(78,204,163,.3)}
+.btn-back{font-family:'DM Mono',monospace;font-size:13px;padding:12px 28px;background:transparent;border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.5);cursor:pointer;border-radius:4px;transition:all .2s}
+.btn-back:hover{border-color:rgba(255,255,255,0.35)}
+.btn-skip{font-family:'DM Mono',monospace;font-size:13px;padding:12px 24px;border-radius:4px;border:1px solid rgba(255,59,59,0.2);background:transparent;color:var(--red);cursor:pointer;transition:all .2s}
+.btn-skip:hover{background:var(--redG)}
+footer{text-align:center;margin-top:48px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.07)}
+footer p{font-family:'DM Mono',monospace;font-size:12px;color:rgba(255,255,255,0.25);margin-bottom:4px}
+footer p strong{font-weight:600;color:rgba(255,255,255,0.4)}
+.email-probe{background:rgba(255,59,59,0.05);border:1px solid rgba(255,59,59,0.18);border-radius:10px;padding:20px 24px;margin-bottom:28px;max-width:440px;margin-left:auto;margin-right:auto}
+.email-probe-label{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:10px}
+.email-probe-title{font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--text);margin-bottom:6px;line-height:1.3}
+.email-probe-sub{font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:16px}
+.email-probe-row{display:flex;gap:8px}
+.email-probe-input{flex:1;font-family:'DM Mono',monospace;font-size:12px;padding:8px 12px;border-radius:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:var(--text);outline:none;transition:border-color .2s}
+.email-probe-input:focus{border-color:rgba(255,59,59,0.5)}
+.email-probe-input::placeholder{color:rgba(255,255,255,0.25)}
+.email-probe-btn{font-family:'DM Mono',monospace;font-size:12px;padding:8px 16px;border-radius:6px;background:var(--red);border:none;color:#fff;cursor:pointer;transition:opacity .2s;white-space:nowrap}
+.email-probe-btn:hover{opacity:0.85}
+.email-probe-btn:disabled{opacity:0.5;cursor:not-allowed}
+.email-probe-msg{font-size:11px;margin-top:10px;min-height:16px;transition:color .2s}
+
+.notif-wrapper{position:relative;width:100%}
+
+.notif-scanline{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent 0%,rgba(78,204,163,.8) 20%,rgba(78,204,163,1) 50%,rgba(78,204,163,.8) 80%,transparent 100%);z-index:20;pointer-events:none;opacity:0;top:0}
+.notif-scanline.active{animation:scanSweep .3s ease-out forwards}
+@keyframes scanSweep{0%{top:-2px;opacity:1}90%{opacity:.8}100%{top:100%;opacity:0}}
+
+.notif-card{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;width:100%;text-align:left;position:relative;opacity:0;transform:translateY(60px) scale(.95)}
+.notif-card.slam{animation:notifSlam .4s cubic-bezier(0.34,1.56,0.64,1) forwards}
+@keyframes notifSlam{0%{opacity:0;transform:translateY(60px) scale(.95)}60%{opacity:1;transform:translateY(-4px) scale(1.02)}100%{opacity:1;transform:translateY(0) scale(1)}}
+
+.notif-card.slam::after{content:'';position:absolute;inset:-4px;border-radius:18px;background:radial-gradient(ellipse at center,rgba(233,69,96,.3),transparent 70%);animation:slamGlow .4s ease-out forwards;pointer-events:none;z-index:-1}
+@keyframes slamGlow{0%{opacity:1;transform:scale(.9)}50%{opacity:.7;transform:scale(1.1)}100%{opacity:0;transform:scale(1.2)}}
+
+.notif-app-label{font-size:10px;font-weight:600;color:var(--red);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.notif-title-text{font-size:13px;font-weight:600;color:var(--text);min-height:18px;margin-bottom:2px;word-break:break-word;overflow-wrap:break-word}
+.notif-title-text .char{display:inline-block;transition:color .05s}
+.notif-title-text .char.flash{color:var(--redBrand)}
+.notif-cursor{display:inline-block;width:2px;height:14px;background:var(--text);vertical-align:middle;margin-left:1px;animation:blink 1s step-end infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+.notif-body-text{font-size:11px;color:var(--dim);opacity:0;transition:opacity .3s}
+.notif-body-text.fadeIn{opacity:1}
+
+.grain-overlay{position:absolute;inset:0;border-radius:14px;pointer-events:none;z-index:15;opacity:0;mix-blend-mode:overlay}
+.grain-overlay.active{animation:grainFade .8s ease-out forwards}
+@keyframes grainFade{0%{opacity:.4}30%{opacity:.25}100%{opacity:0}}
+
+.notif-card.idle-pulse{animation:idleGlow 3s ease-in-out infinite}
+@keyframes idleGlow{0%,100%{box-shadow:0 0 0 0 rgba(233,69,96,0),0 0 12px rgba(233,69,96,.08)}50%{box-shadow:0 0 0 1px rgba(233,69,96,.1),0 0 24px rgba(233,69,96,.15)}}
+
+.notif-exit-wrap{position:relative;width:100%;height:76px}
+.notif-ghost{position:absolute;inset:0;border-radius:14px;padding:14px 16px;text-align:left;background:var(--surface2);border:1px solid var(--border)}
+.notif-ghost.red-ghost{mix-blend-mode:screen;background:rgba(255,59,59,.15);border-color:rgba(255,59,59,.3);animation:ghostDrift .5s ease-out forwards}
+.notif-ghost.blue-ghost{mix-blend-mode:screen;background:rgba(59,130,255,.15);border-color:rgba(59,130,255,.3);animation:ghostDrift .5s ease-out forwards}
+.notif-ghost.main-ghost{animation:ghostCenter .5s ease-out forwards}
+@keyframes ghostDrift{0%{opacity:.8;transform:translateX(0) scaleX(1)}100%{opacity:0;transform:translateX(var(--drift)) scaleX(1.04)}}
+@keyframes ghostCenter{0%{opacity:1;transform:scaleX(1)}100%{opacity:0;transform:scaleX(1.04)}}
+
+.grain-canvas{position:absolute;inset:0;border-radius:14px;pointer-events:none;z-index:15;opacity:0;mix-blend-mode:overlay}
+.grain-canvas.active{opacity:.3;animation:grainCanvasFade .8s ease-out forwards}
+@keyframes grainCanvasFade{0%{opacity:.35}30%{opacity:.2}100%{opacity:0}}
+
+@media(max-width:700px){
+  .main{flex-direction:column;gap:28px}
+  .phone-col{padding:20px}
+  .desc-col{padding:20px;min-height:auto}
+  .sep{display:none}
+  .phone{width:220px;height:400px;border-radius:30px}
+  .phone-screen{inset:6px;border-radius:24px}
+  .desc-title{font-size:28px}
+  .step-watermark{font-size:80px}
+  body::before{opacity:0.5}
+}
+/* SMS thread — Step 3 */
+.sms-screen{background:#000!important;padding:0!important;align-items:stretch!important;justify-content:flex-start!important}
+.sms-hdr{padding:10px 14px 8px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.sms-av{width:30px;height:30px;border-radius:50%;background:#2C2C2E;display:flex;align-items:center;justify-content:center;font-size:11px;color:rgba(255,255,255,0.7);position:relative;flex-shrink:0;font-weight:600}
+.sms-av-dot{position:absolute;bottom:0;right:0;width:8px;height:8px;background:#34C759;border-radius:50%;border:2px solid #000}
+.sms-name{font-size:12px;color:#fff;letter-spacing:.02em}
+.sms-thread{flex:1;overflow-y:auto;padding:8px 10px 4px;display:flex;flex-direction:column;gap:4px;min-height:0}
+.sms-thread::-webkit-scrollbar{display:none}
+.sms-bubble{opacity:0;transform:translateY(8px);transition:opacity .3s ease,transform .3s ease;max-width:88%;font-size:12px;line-height:1.4;flex-shrink:0}
+.sms-bubble.show{opacity:1;transform:none}
+.sms-in{background:#1C1C1E;border-radius:18px 18px 4px 18px;padding:7px 11px;color:#fff;align-self:flex-start}
+.sms-sys{background:#3D0000;border-left:2px solid #FF3B3B;border-radius:5px;padding:6px 9px;color:rgba(255,255,255,0.8);width:100%;box-sizing:border-box}
+.sms-ts{font-size:9px;color:rgba(255,255,255,0.3);margin-top:2px;padding:0 4px;align-self:flex-start;flex-shrink:0}
+.sms-typing{display:flex;gap:4px;padding:9px 12px;background:#1C1C1E;border-radius:18px 18px 4px 18px;align-self:flex-start;opacity:0;transition:opacity .2s;flex-shrink:0}
+.sms-typing.show{opacity:1}
+.sms-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.4)}
+.sms-dot:nth-child(1){animation:sdot .8s ease-in-out infinite}
+.sms-dot:nth-child(2){animation:sdot .8s .15s ease-in-out infinite}
+.sms-dot:nth-child(3){animation:sdot .8s .3s ease-in-out infinite}
+@keyframes sdot{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-4px)}}
+/* Sensor step */
+.ps-sensor-view{width:100%;display:flex;flex-direction:column;gap:7px}
+.ps-sensor-lbl{font-size:9px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;margin-bottom:2px}
+.ps-sensor-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:9px;padding:10px 12px;display:flex;align-items:center;gap:10px;opacity:0;transform:translateY(6px);transition:opacity .35s,transform .35s}
+.ps-sensor-card.ping{opacity:1;transform:translateY(0)}
+.ps-sensor-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.12);flex-shrink:0;transition:background .3s,box-shadow .3s}
+.ps-sensor-dot.active{background:var(--green);box-shadow:0 0 8px rgba(78,204,163,0.5);animation:sdotPing 1.8s ease-in-out infinite}
+@keyframes sdotPing{0%,100%{box-shadow:0 0 8px rgba(78,204,163,0.5)}50%{box-shadow:0 0 14px rgba(78,204,163,0.9)}}
+.ps-si{flex:1;min-width:0}
+.ps-si-name{font-size:11px;color:var(--text);line-height:1.2}
+.ps-si-time{font-size:10px;color:var(--muted);margin-top:2px}
+.ps-sensor-banner{background:rgba(78,204,163,0.07);border:1px solid rgba(78,204,163,0.18);border-radius:9px;padding:9px 12px;text-align:center;font-size:11px;color:var(--green);opacity:0;transition:opacity .5s;margin-top:2px;letter-spacing:.02em}
+.ps-sensor-banner.show{opacity:1}
+/* Streak — checkin step */
+.ps-streak-row{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px}
+.ps-streak-num{font-family:'Fraunces',serif;font-size:30px;font-weight:900;color:var(--green);line-height:1}
+.ps-streak-lbl{font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;line-height:1.4}
+.ps-prompt-line{font-size:10px;color:rgba(255,255,255,0.2);margin-top:12px;font-style:italic;text-align:center;line-height:1.5;padding:0 8px}
+/* Grace timer — miss step */
+.ps-grace{width:100%;text-align:center}
+.ps-grace-clock{font-size:38px;font-weight:200;color:var(--yellow);font-variant-numeric:tabular-nums;letter-spacing:-1px;margin-bottom:4px}
+.ps-grace-sub{font-size:10px;color:var(--muted);margin-bottom:12px}
+.ps-grace-bar-wrap{width:100%;height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;margin-bottom:14px}
+.ps-grace-bar-fill{height:100%;width:12%;background:var(--yellow);border-radius:2px;animation:graceGrow 4s ease-out forwards}
+@keyframes graceGrow{from{width:5%}to{width:68%}}
+.ps-snooze-row{display:flex;gap:6px;justify-content:center;margin-bottom:10px}
+.ps-snooze-btn{font-size:9px;padding:5px 10px;border-radius:5px;border:1px solid rgba(245,166,35,0.25);background:rgba(245,166,35,0.07);color:var(--yellow);cursor:default;letter-spacing:.04em}
+.ps-grace-note{font-size:9px;color:rgba(255,255,255,0.2);text-align:center}
+/* Multi-channel badges — contacts step */
+.ps-channels{display:flex;gap:5px;padding:5px 10px 8px;flex-shrink:0;align-items:center}
+.ps-ch{font-size:9px;padding:2px 8px;border-radius:4px;font-weight:600;letter-spacing:.04em;white-space:nowrap}
+.ps-ch.push{background:rgba(78,204,163,0.12);color:var(--green);border:1px solid rgba(78,204,163,0.2)}
+.ps-ch.sms{background:rgba(255,59,59,0.1);color:var(--red);border:1px solid rgba(255,59,59,0.15)}
+.ps-ch.email{background:rgba(255,255,255,0.06);color:var(--dim);border:1px solid rgba(255,255,255,0.1)}
+.ps-ch-meta{font-size:9px;color:rgba(255,255,255,0.25);margin-left:3px}
+/* Family portal mini — resolve step */
+.ps-portal{background:rgba(78,204,163,0.05);border:1px solid rgba(78,204,163,0.15);border-radius:10px;padding:10px 12px;width:100%;margin-top:12px}
+.ps-portal-hdr{font-size:9px;color:var(--green);letter-spacing:.12em;text-transform:uppercase;margin-bottom:7px;opacity:.7}
+.ps-portal-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.ps-portal-row:last-child{margin-bottom:0}
+.ps-portal-dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;box-shadow:0 0 6px rgba(78,204,163,0.5)}
+.ps-portal-name{font-size:11px;color:var(--text)}
+.ps-portal-time{font-size:9px;color:var(--muted);margin-left:auto}
+/* Mutual buddy pill */
+.ps-buddy-pill{display:inline-flex;align-items:center;gap:5px;background:rgba(78,204,163,0.07);border:1px solid rgba(78,204,163,0.15);border-radius:20px;padding:4px 10px;font-size:10px;color:var(--green);margin-top:10px}
+.ps-buddy-dot{width:5px;height:5px;border-radius:50%;background:var(--green);flex-shrink:0;animation:sdotPing 2s ease-in-out infinite}
+/* Drag slider — Step 1 */
+.sl-wrap{position:relative;width:100%;height:520px;overflow:hidden;touch-action:none;user-select:none}
+.sl-side{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.sl-before{filter:grayscale(100%) brightness(0.9)}
+.sl-lbl{position:absolute;top:18px;font-size:10px;letter-spacing:0.14em;pointer-events:none;z-index:5}
+.sl-lbl-l{left:18px;color:rgba(255,255,255,0.3)}
+.sl-lbl-r{right:18px;color:#FF3B3B;text-align:right}
+.sl-div{position:absolute;top:0;bottom:0;width:2px;background:#FF3B3B;transform:translateX(-50%);z-index:20;cursor:ew-resize;touch-action:none}
+.sl-handle{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:40px;height:40px;background:#FF3B3B;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;animation:slPulse 2.5s ease-in-out infinite;cursor:ew-resize}
+.sl-dragging .sl-handle{transform:translate(-50%,-50%) scale(1.1)!important;animation:none}
+.sl-handle:hover{transform:translate(-50%,-50%) scale(1.1);animation:none}
+@keyframes slPulse{0%,100%{box-shadow:0 0 20px rgba(255,59,59,0.4)}50%{box-shadow:0 0 36px rgba(255,59,59,0.7),0 0 55px rgba(255,59,59,0.2)}}
+.sl-ph{width:240px;height:440px;border-radius:36px;background:#111;border:1px solid rgba(255,255,255,0.08);position:relative;overflow:hidden;flex-shrink:0}
+.sl-after .sl-ph{box-shadow:0 0 70px rgba(220,38,38,0.2),0 0 18px rgba(220,38,38,0.08)}
+.sl-notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:88px;height:21px;background:#000;border-radius:0 0 14px 14px;z-index:10}
+.sl-scr{position:absolute;inset:7px;border-radius:27px;background:#080808;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px}
+.sl-scr.sl-sms{background:#000;padding:0;align-items:stretch;justify-content:flex-start}
+@media(max-width:700px){.sl-wrap{height:380px}.sl-ph{width:180px;height:320px;border-radius:28px}.sl-lbl{top:12px;font-size:9px}}
+</style>
+</head>
+<body>
+<video id="videoBg" autoplay muted loop playsinline style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.07;mix-blend-mode:screen;pointer-events:none;z-index:0">
+  <source src="https://videos.pexels.com/video-files/3129671/3129671-uhd_2560_1440_30fps.mp4" type="video/mp4">
+</video>
+<div class="wrap">
+  <header>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="logo">Still Here</span>
+      <span class="badge">TESTER</span>
+    </div>
+    <div class="hdr-right">
+      <span class="step-ind" id="stepInd">Step 0 of 6</span>
+      <button class="btn-reset" onclick="resetDemo()">RESET</button>
+    </div>
+  </header>
+  <div class="offline-notice" id="offlineNotice">Tester — backend offline</div>
+  <div class="timeline" id="timeline"></div>
+  <div class="main" id="mainArea"></div>
+  <div class="controls" id="controls"></div>
+  <footer>
+    <div class="email-probe">
+      <div class="email-probe-label">Email Tester</div>
+      <div class="email-probe-title">Get a real check-in email</div>
+      <div class="email-probe-sub">Enter your email — we'll send the actual notification Alice receives. The link inside works.</div>
+      <div class="email-probe-row">
+        <input class="email-probe-input" id="probeEmail" type="email" placeholder="your@email.com">
+        <button class="email-probe-btn" id="probeBtn" onclick="sendProbeEmail()">Send →</button>
+      </div>
+      <div class="email-probe-msg" id="probeMsg"></div>
+    </div>
+    <p>Built with care. Never with urgency.</p>
+    <p><strong>Still Here</strong> — $5 lifetime. No subscriptions.</p>
+  </footer>
+</div>
+<script>
+const USE_VIDEO_BG=true;
+if(!USE_VIDEO_BG){const v=document.getElementById('videoBg');if(v)v.remove()}
+const API=location.origin;
+let currentStep=0,backendUp=true,bobChoice=null;
+let typeInterval=null,notipAnimPhase='idle',cycleTimer=null;
+const PROMPTS=[
+  {title:"Still here, Alice?",sub:"Tap to check in."},
+  {title:"Hey. Just checking.",sub:"One tap is all we need."},
+  {title:"You good?",sub:"We noticed it's been a while."},
+  {title:"Still with us?",sub:"No pressure. Just tap."},
+  {title:"Haven't heard from you.",sub:"Let us know you're okay."},
+  {title:"Good evening, Alice.",sub:"Quick check-in time."},
+  {title:"Alice. Hey.",sub:"Still here with you."},
+  {title:"It's that time.",sub:"Tap and we'll leave you alone."},
+  {title:"We're thinking about you.",sub:"One tap says it all."},
+  {title:"Just a nudge.",sub:"We've got you."},
+];
+let promptIdx=Math.floor(Math.random()*PROMPTS.length);
+let currentPrompt=PROMPTS[promptIdx];
+function rollPrompt(){promptIdx=(promptIdx+1)%PROMPTS.length;currentPrompt=PROMPTS[promptIdx]}
+const TL=['Prompt','Grace','Contacts','Bob','Confirm','Resolved'];
+const TL_IDS=['prompt','grace','contacts','bob','confirm','resolved'];
+const steps=[
+  {id:'send-prompt',api:'/api/demo/step/send-prompt'},
+  {id:'sensors'},
+  {id:'checkin',api:'/api/demo/step/checkin'},
+  {id:'miss',api:'/api/demo/step/miss-checkin'},
+  {id:'contacts',api:'/api/demo/step/grace-expire'},
+  {id:'bob'},
+  {id:'resolve',api:'/api/demo/step/user-confirm'},
+  {id:'welfare',api:'/api/demo/step/welfare-check'}
+];
+function buildTimeline(){
+  const labels=['PROMPT','GRACE','CONTACTS','BOB','CONFIRM','RESOLVED'];
+  const el=document.getElementById('timeline');
+  el.innerHTML=labels.map((l,i)=>`<div class="tl-node" id="tln${i}"><span class="tl-label">${String(i+1).padStart(2,'0')} ${l}</span></div>${i<labels.length-1?'<div class="tl-line" id="tll'+i+'"></div>':''}`).join('');
+}
+function updateTimeline(){
+  const N=6;
+  for(let i=0;i<N;i++){
+    document.getElementById('tln'+i).className='tl-node';
+    if(i<N-1)document.getElementById('tll'+i).className='tl-line';
+  }
+  function doneThrough(last){
+    for(let i=0;i<=last;i++){
+      document.getElementById('tln'+i).classList.add('done');
+      if(i<N-1)document.getElementById('tll'+i).classList.add('done');
+    }
+  }
+  function setActive(idx){
+    if(idx>0)doneThrough(idx-1);
+    document.getElementById('tln'+idx).classList.add('active');
+  }
+  const s=currentStep;
+  if(s===0||s===1)setActive(0);           // PROMPT (send-prompt, sensors)
+  else if(s===2)doneThrough(N-1);         // checkin — happy path, all resolved
+  else if(s===3)setActive(1);             // GRACE (missed, waiting)
+  else if(s===4)setActive(2);             // CONTACTS (contacts alerted)
+  else if(s===5)setActive(3);             // BOB (contact responding)
+  else if(s===6)setActive(4);             // CONFIRM (majority confirmed)
+  else if(s===7){doneThrough(4);document.getElementById('tln5').classList.add('active');} // RESOLVED via welfare
+}
+function resetTimeline(){document.querySelectorAll('.tl-node').forEach(n=>{n.className='tl-node'});document.querySelectorAll('.tl-line').forEach(l=>{l.className='tl-line'})}
+function stopNotifAnim(){
+  if(typeInterval){clearInterval(typeInterval);typeInterval=null}
+  if(cycleTimer){clearTimeout(cycleTimer);cycleTimer=null}
+  notipAnimPhase='idle';
+  stopSmsThread();
+}
+function startPromptCycle(){
+  if(cycleTimer){clearTimeout(cycleTimer);cycleTimer=null}
+  function doCycle(){
+    if(currentStep!==0)return;
+    const card=document.getElementById('nCard');
+    if(!card)return;
+    card.style.transition='opacity 0.2s';
+    card.style.opacity='0';
+    setTimeout(()=>{
+      rollPrompt();
+      const titleEl=document.getElementById('nTitle');
+      const bodyEl=document.getElementById('nBody');
+      if(titleEl)titleEl.textContent=currentPrompt.title;
+      if(bodyEl){bodyEl.textContent=currentPrompt.sub;bodyEl.style.cssText='opacity:1'}
+      card.className='notif-card';
+      card.style.cssText='transition:opacity 0.2s;opacity:1';
+      cycleTimer=setTimeout(doCycle,2000);
+    },200);
+  }
+  cycleTimer=setTimeout(doCycle,1500);
+}
+function generateGrainData(){
+  const c=document.createElement('canvas');
+  c.width=200;c.height=80;
+  const ctx=c.getContext('2d');
+  const img=ctx.createImageData(200,80);
+  for(let i=0;i<img.data.length;i+=4){const v=Math.random()*255;img.data[i]=v;img.data[i+1]=v;img.data[i+2]=v;img.data[i+3]=40}
+  ctx.putImageData(img,0,0);
+  return c.toDataURL();
+}
+function playNotifAnimation(){
+  // Only stop typing interval, preserve cycle timer
+  if(typeInterval){clearInterval(typeInterval);typeInterval=null}
+  notipAnimPhase='scanning';
+  const scanline=document.getElementById('nScanline');
+  const card=document.getElementById('nCard');
+  const titleEl=document.getElementById('nTitle');
+  const bodyEl=document.getElementById('nBody');
+  const grain=document.getElementById('nGrain');
+  if(!scanline||!card)return;
+  card.className='notif-card';
+  card.style.cssText='';
+  scanline.className='notif-scanline';
+  titleEl.innerHTML='';
+  bodyEl.className='notif-body-text';
+  bodyEl.style.cssText='';
+  if(grain){grain.className='grain-canvas';grain.style.cssText=''}
+  void scanline.offsetWidth;
+  scanline.classList.add('active');
+  setTimeout(()=>{
+    notipAnimPhase='slam';
+    card.classList.add('slam');
+    setTimeout(()=>{
+      notipAnimPhase='typing';
+      const text=currentPrompt.title;
+      let ci=0;
+      typeInterval=setInterval(()=>{
+        if(ci>=text.length){
+          clearInterval(typeInterval);typeInterval=null;
+          notipAnimPhase='subtitle';
+          if(grain){
+            grain.style.backgroundImage=`url(${generateGrainData()})`;
+            grain.style.backgroundSize='cover';
+            grain.classList.add('active');
+          }
+          bodyEl.style.opacity='0';
+          bodyEl.classList.add('fadeIn');
+          setTimeout(()=>{
+            notipAnimPhase='idle';
+            card.classList.remove('slam');
+            void card.offsetWidth;
+            card.classList.add('idle-pulse');
+          },500);
+          return;
+        }
+        const span=document.createElement('span');
+        span.className='char';
+        span.textContent=text[ci];
+        span.classList.add('flash');
+        titleEl.appendChild(span);
+        setTimeout(()=>span.classList.remove('flash'),60);
+        ci++;
+      },35);
+      if(titleEl.querySelector('.notif-cursor'))titleEl.querySelector('.notif-cursor').remove();
+      const cur=document.createElement('span');
+      cur.className='notif-cursor';
+      titleEl.appendChild(cur);
+    },200);
+  },300);
+}
+function playNotifExit(cb){
+  const wrapper=document.querySelector('.notif-wrapper');
+  if(!wrapper){cb();return}
+  const pt=currentPrompt.title;
+  wrapper.innerHTML=`
+    <div class="notif-ghost red-ghost" style="--drift:-18px">
+      <div class="notif-app-label">STILL HERE</div>
+      <div class="notif-title-text" style="opacity:.6">${pt}</div>
+    </div>
+    <div class="notif-ghost blue-ghost" style="--drift:18px">
+      <div class="notif-app-label">STILL HERE</div>
+      <div class="notif-title-text" style="opacity:.6">${pt}</div>
+    </div>
+    <div class="notif-ghost main-ghost">
+      <div class="notif-app-label">STILL HERE</div>
+      <div class="notif-title-text">${pt}</div>
+    </div>`;
+  setTimeout(cb,500);
+}
+function phoneContent(id){
+  const svgs=`<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="none" stroke="#4ecca3" stroke-width="3"/><path class="check-path" d="M18 34l10 10 18-22" fill="none" stroke="#4ecca3" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  switch(id){
+    case'send-prompt':return`<div class="notif-wrapper"><div id="nScanline" class="notif-scanline"></div><div id="nCard" class="notif-card" style="opacity:0;transform:translateY(60px)"><div class="notif-app-label">STILL HERE</div><div id="nTitle" class="notif-title-text"></div><div id="nBody" class="notif-body-text">${currentPrompt.sub}</div></div><canvas id="nGrain" class="grain-canvas"></canvas></div>`;
+    case'sensors':return`<div class="ps-sensor-view"><div class="ps-sensor-lbl">Connected sensors</div><div class="ps-sensor-card" id="sc0"><div class="ps-sensor-dot active"></div><span style="font-size:15px">🏃</span><div class="ps-si"><div class="ps-si-name">Motion · Living room</div><div class="ps-si-time">9:04 AM</div></div></div><div class="ps-sensor-card" id="sc1"><div class="ps-sensor-dot active"></div><span style="font-size:15px">🚪</span><div class="ps-si"><div class="ps-si-name">Front door · opened</div><div class="ps-si-time">9:02 AM</div></div></div><div class="ps-sensor-card" id="sc2"><div class="ps-sensor-dot active"></div><span style="font-size:15px">❤️</span><div class="ps-si"><div class="ps-si-name">Apple Watch · steps</div><div class="ps-si-time">7,821 today</div></div></div><div class="ps-sensor-card" id="sc3"><div class="ps-sensor-dot" id="alexaDot"></div><span style="font-size:15px">🔊</span><div class="ps-si"><div class="ps-si-name">Alexa · linked</div><div class="ps-si-time">waiting...</div></div></div><div class="ps-sensor-banner" id="sBanner"><span style="color:var(--green)">✓</span> Auto check-in triggered · 9:04 AM</div></div>`;
+    case'checkin':return`<div class="ps-check-icon">${svgs}</div><div class="ps-big-text" style="color:var(--green)">Checked in ✓</div><div class="ps-small-text" style="margin-top:4px">Alice is safe. Someone always knows.</div><div class="ps-streak-row"><div class="ps-streak-num">47</div><div class="ps-streak-lbl">day<br>streak</div></div><div class="ps-prompt-line">"You showed up today.<br>That matters."</div>`;
+    case'miss':return`<div class="ps-grace"><div class="ps-grace-clock" id="graceClk">58:12</div><div class="ps-grace-sub">Grace period · 60 min remaining</div><div class="ps-grace-bar-wrap"><div class="ps-grace-bar-fill"></div></div><div class="ps-snooze-row"><div class="ps-snooze-btn">Snooze 2h</div><div class="ps-snooze-btn">Vacation mode</div></div><div class="ps-grace-note">Alice forgot to snooze before her nap.</div></div>`;
+    case'contacts':return`<div class="sms-hdr"><div class="sms-av">BC<div class="sms-av-dot"></div></div><div><div class="sms-name">Bob Chen</div><div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">Emergency Contact · Mutual Buddy</div></div></div><div style="padding:4px 10px 0;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,0.2)">Family Group · 3 contacts</div><div class="ps-channels"><div class="ps-ch push">PUSH</div><div class="ps-ch sms">SMS</div><div class="ps-ch email">EMAIL</div><div class="ps-ch-meta">→ 3 contacts, simultaneous</div></div><div class="sms-thread" id="smsThread"></div>`;
+    case'bob':return`<div class="ps-confirm-screen"><div class="ps-big-text" style="color:var(--yellow);font-size:13px;margin-bottom:12px">Bob received the alert</div><div class="ps-choice-row"><div class="ps-choice-btn ${bobChoice==='safe'?'safe':''}">✓ She's safe</div><div class="ps-choice-btn ${bobChoice==='cant'?'cant':''}">✗ Can't reach her</div></div>${bobChoice==='safe'?'<div class="ps-small-text" style="margin-top:10px;color:var(--green)">Bob confirmed ✓</div>':bobChoice==='cant'?'<div class="ps-small-text" style="margin-top:10px;color:var(--red)">Bob couldn\'t reach Alice</div>':''}</div>`;
+    case'resolve':return`<div class="ps-check-icon">${svgs}</div><div class="ps-big-text" style="color:var(--green)">Escalation resolved ✓</div><div class="ps-small-text" style="margin-top:4px;color:rgba(255,255,255,0.4)">Majority confirmed · Alice double-confirmed</div><div class="ps-portal"><div class="ps-portal-hdr">Family Portal — live</div><div class="ps-portal-row"><div class="ps-portal-dot"></div><div class="ps-portal-name">Alice</div><div class="ps-portal-time">✓ safe · just now</div></div><div class="ps-portal-row"><div class="ps-portal-dot"></div><div class="ps-portal-name">Bob (buddy)</div><div class="ps-portal-time">✓ 9:12 AM</div></div></div>`;
+    case'welfare':return`<div class="ps-welfare"><div class="ps-welfare-icon">📞</div><div class="ps-welfare-title">Welfare Check Initiated</div><div class="ps-welfare-sub">Non-emergency line only.<br>Never 911.</div></div>`;
+  }
+}
+const descContent={
+  'send-prompt':{title:'Still Here',body:'A daily check-in at a time they choose. One tap says everything. Snooze it, set a vacation window, or skip taps entirely — sensors handle it automatically. Test the full escalation before going live with a dry run.',btn:"Let's see what happens",btnClass:''},
+  'sensors':{title:'Passive Check-in',body:'No app needed. Motion sensors, front door, Apple Watch step count, Alexa voice — any of these auto-trigger a check-in. Pair with Home Assistant, SmartThings, or our REST API.',btn:'See what happens if she misses',btnClass:''},
+  checkin:{title:'Alice Checks In',body:"One tap. 47-day streak. The family portal updates instantly — her parents see she's safe without being bothered. Activity log, streak milestones, and annual report all update. 99% of the time, this is it.",btn:'Advance',btnClass:'',teaser:'But what if she doesn\'t respond?'},
+  miss:{title:'No Response',body:"Alice didn't respond. No panic — she configured a 60-minute grace period. She could've snoozed for a nap, or set vacation mode before her trip. She forgot to.",btn:'Advance',btnClass:''},
+  contacts:{title:'Contacts Alerted',body:"Grace expired. Every contact gets push notification + SMS + email simultaneously. Bob is also Alice's mutual buddy — he was already watching her check-in streak through the buddy system.",btn:'Next',btnClass:''},
+  bob:{title:"Bob's Turn",body:"Bob got the push, SMS, and email simultaneously. He calls Alice. No answer. He's heading over. What does he tell us?",btn:'',btnClass:'',choices:true},
+  resolve:{title:'Escalation Resolved',body:"One contact isn't enough. A majority must confirm, then Alice herself double-confirms. The family portal updates live — her parents see she's okay the moment it resolves. Streak preserved.",btn:'Back to start',btnClass:'green',altBtn:'What if contacts can\'t reach her?',altStep:7},
+  welfare:{title:'Worst Case: Welfare Check',body:'Last resort. Push ignored + grace expired + all contacts alerted + majority failed to confirm + Alice still silent. We place one call to the non-emergency welfare line. Never 911. Rate-limited to once per 72 hours.',btn:'Back to start',btnClass:'green',note:'Never 911. Non-emergency line only.',altBtn:'What if she had checked in?',altStep:2}
+};
+let isFirstRender=true;
+function render(){
+  document.getElementById('stepInd').textContent=currentStep===0?'Intro · of 7':`Step ${currentStep} of 7`;
+  updateTimeline();
+  const s=steps[currentStep];
+  const d=descContent[s.id];
+  const main=document.getElementById('mainArea');
+  const screen=document.querySelector('.phone-screen');
+  const isExitingNotif=(s.id==='send-prompt'&&screen&&document.getElementById('nCard'));
+  if(isExitingNotif){
+    playNotifExit(()=>{
+      main.innerHTML=buildMain(s.id);
+      setTimeout(()=>{
+        const ns=document.querySelector('.phone-screen');
+        if(ns)ns.classList.remove('fading');
+        postRender(s.id);
+      },50);
+    });
+  }else if(screen&&!isFirstRender){
+    screen.classList.add('fading');
+    setTimeout(()=>{
+      main.innerHTML=buildMain(s.id);
+      setTimeout(()=>{
+        const ns=document.querySelector('.phone-screen');
+        if(ns)ns.classList.remove('fading');
+        postRender(s.id);
+      },50);
+    },300);
+  }else{
+    main.innerHTML=buildMain(s.id);
+    isFirstRender=false;
+    postRender(s.id);
+  }
+  const ctrl=document.getElementById('controls');
+  let html='';
+  if(currentStep>0&&currentStep<6)html+=`<button class="btn-back" onclick="goBack()">← Back</button>`;
+  if(d.btn)html+=`<button class="btn-next ${d.btnClass}" onclick="goNext()">${d.btn}</button>`;
+  if(d.altBtn)html+=`<button class="btn-skip" onclick="goToStep(${d.altStep})">${d.altBtn}</button>`;
+  ctrl.innerHTML=html;
+}
+function buildMain(id){
+  if(id==='send-prompt')return buildSlider();
+  const d=descContent[id];
+  const wm=String(currentStep+1).padStart(2,'0');
+  let descHtml=`<div class="desc"><div class="desc-title">${d.title}</div><div class="desc-body">${d.body}</div>`;
+  if(d.note)descHtml+=`<div style="font-size:12px;color:var(--red);margin-bottom:8px;font-weight:500">${d.note}</div>`;
+  if(d.teaser)descHtml+=`<div class="desc-teaser">${d.teaser}</div>`;
+  if(d.choices){
+    descHtml+=`<div style="display:flex;gap:8px;margin-top:12px"><button class="btn-next green" style="font-size:12px;padding:10px 18px" onclick="bobResponds('safe')">Bob: "She's safe"</button><button class="btn-next" style="font-size:12px;padding:10px 18px;background:var(--red)" onclick="bobResponds('cant')">Bob: "Can't reach her"</button></div>`;
+  }
+  descHtml+=`</div>`;
+  const sc=id==='contacts'?'phone-screen sms-screen':'phone-screen';
+  return`<div class="phone-col"><div class="phone"><div class="phone-notch"></div><div class="${sc}">${phoneContent(id)}</div></div></div><div class="sep"></div><div class="desc-col"><div class="step-watermark">${wm}</div>${descHtml}</div>`;
+}
+async function callApi(endpoint){
+  if(!backendUp)return;
+  try{await fetch(API+endpoint,{method:'POST'})}catch(e){console.warn('API call failed',e)}
+}
+async function goNext(){
+  stopNotifAnim();
+  const s=steps[currentStep];
+  if(s.api)await callApi(s.api);
+  if(currentStep>=6){currentStep=0;bobChoice=null;rollPrompt();await resetApi();render();return}
+  currentStep++;render();
+}
+function goBack(){
+  stopNotifAnim();
+  if(currentStep>0){currentStep--;bobChoice=null;render()}
+}
+async function goToStep(n){
+  stopNotifAnim();
+  const chain=[];
+  if(n===2){chain.push('/api/demo/step/send-prompt','/api/demo/step/checkin')}
+  else if(n===3){chain.push('/api/demo/step/send-prompt','/api/demo/step/miss-checkin','/api/demo/step/grace-expire')}
+  else if(n===7){chain.push('/api/demo/step/send-prompt','/api/demo/step/miss-checkin','/api/demo/step/grace-expire','/api/demo/step/contact-cant-reach','/api/demo/step/welfare-check')}
+  for(const ep of chain)await callApi(ep);
+  bobChoice=null;
+  currentStep=n;render();
+}
+async function bobResponds(choice){
+  bobChoice=choice;
+  if(choice==='safe')await callApi('/api/demo/step/contact-confirm');
+  else await callApi('/api/demo/step/contact-cant-reach');
+  const main=document.getElementById('mainArea');
+  const screen=document.querySelector('.phone-screen');
+  if(screen){screen.classList.add('fading');setTimeout(()=>{main.innerHTML=buildMain('bob');setTimeout(()=>{const ns=document.querySelector('.phone-screen');if(ns)ns.classList.remove('fading')},50)},300)}
+  setTimeout(()=>{currentStep=choice==='safe'?6:7;render()},900);
+}
+async function resetApi(){
+  try{await fetch(API+'/api/demo/reset');await fetch(API+'/api/demo/seed')}catch(e){console.warn('reset failed')}
+}
+async function resetDemo(){
+  stopNotifAnim();
+  currentStep=0;bobChoice=null;rollPrompt();await resetApi();render();
+}
+function postRender(id){
+  if(id==='contacts')startSmsThread();
+  if(id==='send-prompt'){
+    setTimeout(initSlider,50);
+    setTimeout(playNotifAnimation,100);
+    startPromptCycle();
+  }
+  if(id==='sensors')startSensorAnim();
+  if(id==='miss')startGraceClock();
+}
+function startGraceClock(){
+  const el=document.getElementById('graceClk');
+  if(!el)return;
+  let secs=58*60+12;
+  function tick(){
+    if(!document.getElementById('graceClk'))return;
+    secs=Math.max(0,secs-1);
+    const m=Math.floor(secs/60);
+    const s=secs%60;
+    el.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+    if(secs>0)setTimeout(tick,1000);
+  }
+  setTimeout(tick,1000);
+}
+function startSensorAnim(){
+  ['sc0','sc1','sc2','sc3'].forEach(function(id,i){
+    setTimeout(function(){var el=document.getElementById(id);if(el)el.classList.add('ping');},i*380+80);
+  });
+  setTimeout(function(){
+    var dot=document.getElementById('alexaDot');
+    if(dot)dot.classList.add('active');
+    var t=document.querySelector('#sc3 .ps-si-time');
+    if(t)t.textContent='"Alexa, I\'m here."';
+  },1500);
+  setTimeout(function(){var b=document.getElementById('sBanner');if(b)b.classList.add('show');},1900);
+}
+
+let smsTimers=[];
+function stopSmsThread(){smsTimers.forEach(clearTimeout);smsTimers=[]}
+function startSmsThread(){
+  stopSmsThread();
+  const thread=document.getElementById('smsThread');
+  if(!thread)return;
+  function addBubble(cls,text,ts){
+    const b=document.createElement('div');
+    b.className='sms-bubble '+cls;
+    b.textContent=text;
+    const t=document.createElement('div');
+    t.className='sms-ts';
+    t.textContent=ts;
+    thread.appendChild(b);
+    thread.appendChild(t);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>b.classList.add('show')));
+    thread.scrollTop=thread.scrollHeight;
+  }
+  function showTyping(){
+    const d=document.createElement('div');
+    d.className='sms-typing';
+    d.id='smsTyping';
+    d.innerHTML='<div class="sms-dot"></div><div class="sms-dot"></div><div class="sms-dot"></div>';
+    thread.appendChild(d);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>d.classList.add('show')));
+    thread.scrollTop=thread.scrollHeight;
+  }
+  function removeTyping(){const d=document.getElementById('smsTyping');if(d)d.remove()}
+  smsTimers.push(setTimeout(()=>addBubble('sms-sys',"Alice hasn't checked in today.",'9:04 AM'),500));
+  smsTimers.push(setTimeout(()=>showTyping(),2500));
+  smsTimers.push(setTimeout(()=>{removeTyping();addBubble('sms-in','On it. Calling her now.','9:04 AM')},3800));
+  smsTimers.push(setTimeout(()=>showTyping(),5500));
+  smsTimers.push(setTimeout(()=>{removeTyping();addBubble('sms-in','No answer. Going to her place.','9:05 AM')},6500));
+  smsTimers.push(setTimeout(()=>addBubble('sms-sys','Thank you, Bob.','9:05 AM'),8000));
+}
+
+function buildSlider(){
+  const isMob=window.innerWidth<=700;
+  const p=isMob?20:28;
+  return`<div class="sl-wrap" id="slWrap">
+  <div class="sl-side sl-before">
+    <span class="sl-lbl sl-lbl-l">WITHOUT STILL HERE</span>
+    <div class="sl-ph">
+      <div class="sl-notch"></div>
+      <div class="sl-scr">
+        <div style="text-align:center;font-size:24px;opacity:0.45;margin-bottom:14px">✕</div>
+        <div style="background:#191919;border:1px solid rgba(255,255,255,0.05);border-radius:11px;padding:11px 13px;width:100%;text-align:left;opacity:0.85">
+          <div style="font-size:9px;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">STILL HERE</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:3px">Missed check-in. Day 3.</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.18)">No one was notified.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="sl-side sl-after" id="slAfter" style="clip-path:inset(0 0 0 ${p}%)">
+    <span class="sl-lbl sl-lbl-r">WITH STILL HERE</span>
+    <div class="sl-ph">
+      <div class="sl-notch"></div>
+      <div class="sl-scr">${phoneContent('send-prompt')}</div>
+    </div>
+  </div>
+  <div class="sl-div" id="slDiv" style="left:${p}%">
+    <div class="sl-handle">⟷</div>
+  </div>
+</div>`;
+}
+
+function initSlider(){
+  const wrap=document.getElementById('slWrap');
+  const div=document.getElementById('slDiv');
+  const after=document.getElementById('slAfter');
+  if(!wrap||!div||!after)return;
+  let dragging=false;
+  function alive(){return!!document.getElementById('slDiv')}
+  function setPos(p){
+    p=Math.max(5,Math.min(95,p));
+    div.style.left=p+'%';
+    after.style.clipPath=`inset(0 0 0 ${p}%)`;
+  }
+  function fromX(x){
+    const r=wrap.getBoundingClientRect();
+    return((x-r.left)/r.width)*100;
+  }
+  div.addEventListener('mousedown',e=>{dragging=true;wrap.classList.add('sl-dragging');e.preventDefault()});
+  document.addEventListener('mousemove',e=>{if(dragging&&alive())requestAnimationFrame(()=>setPos(fromX(e.clientX)))});
+  document.addEventListener('mouseup',()=>{if(dragging){dragging=false;wrap.classList&&wrap.classList.remove('sl-dragging')}});
+  div.addEventListener('touchstart',e=>{dragging=true;e.preventDefault()},{passive:false});
+  document.addEventListener('touchmove',e=>{if(dragging&&alive())requestAnimationFrame(()=>setPos(fromX(e.touches[0].clientX)))},{passive:false});
+  document.addEventListener('touchend',()=>{dragging=false});
+}
+
+async function init(){
+  buildTimeline();
+  try{const r=await fetch(API+'/api/demo/state');if(r.ok){const d=await r.json();if(d.step)currentStep=d.step;backendUp=true}else throw 0}catch(e){try{await fetch(API+'/api/demo/seed');backendUp=true}catch(e2){backendUp=false;document.getElementById('offlineNotice').style.display='block'}}
+  render();
+}
+async function sendProbeEmail(){
+  const input=document.getElementById('probeEmail');
+  const btn=document.getElementById('probeBtn');
+  const msg=document.getElementById('probeMsg');
+  const email=(input.value||'').trim();
+  if(!email||!email.includes('@')){msg.style.color='var(--red)';msg.textContent='Enter a valid email.';return;}
+  btn.disabled=true;btn.textContent='Sending…';msg.style.color='var(--dim)';msg.textContent='';
+  try{
+    const r=await fetch(API+'/api/demo/sample-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+    const d=await r.json();
+    if(r.ok){msg.style.color='var(--green)';msg.textContent='Sent! Check your inbox — the link inside actually works.';btn.textContent='Sent ✓';}
+    else{msg.style.color='var(--red)';msg.textContent=d.detail||'Something went wrong.';btn.disabled=false;btn.textContent='Send →';}
+  }catch(e){msg.style.color='var(--red)';msg.textContent='Could not reach server.';btn.disabled=false;btn.textContent='Send →';}
+}
+init();
+</script>
+</body>
+</html>

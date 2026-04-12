@@ -148,6 +148,27 @@ def register_device_token(body: DeviceTokenIn, user=Depends(get_current_user), d
     return {"ok": True}
 
 
+class WebPushSubscribeIn(BaseModel):
+    subscription: dict
+
+
+@router.post("/web-push-subscribe")
+def register_web_push(body: WebPushSubscribeIn, user=Depends(get_current_user), db=Depends(get_session)):
+    import json
+    db.execute(
+        text("UPDATE users SET device_token = :token WHERE id = :uid"),
+        {"token": json.dumps(body.subscription), "uid": str(user["id"])},
+    )
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/vapid-public-key")
+def get_vapid_public_key():
+    from config import settings
+    return {"publicKey": settings.webpush_vapid_public_key}
+
+
 @router.get("/me")
 def get_me(user=Depends(get_current_user)):
     user.pop("password_hash", None)

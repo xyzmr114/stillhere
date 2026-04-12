@@ -154,7 +154,7 @@ footer{border-top:1px solid var(--border);padding:56px 0;position:relative;z-ind
   <div class="nav-links">
     <a href="#how">How It Works</a>
     <a href="#pricing">Pricing</a>
-    <a href="/demo">Live Demo</a>
+    <a href="/tester">Live Demo</a>
     <a href="/app" class="nav-cta">Get Started</a>
   </div>
 </nav>
@@ -167,7 +167,7 @@ footer{border-top:1px solid var(--border);padding:56px 0;position:relative;z-ind
     <p class="hero-sub">A daily check-in app that only escalates when it matters.<br><strong>Miss it — we call your people</strong>, not 911.</p>
     <div class="ctas">
       <a href="/app" class="btn-red">Get Started — $5 <span class="arr">→</span></a>
-      <a href="/demo" class="btn-outline">Try the Live Demo →</a>
+      <a href="/tester" class="btn-outline">Try the Live Demo →</a>
     </div>
     <p class="hero-note">One-time payment, we host it. Or self-host free on Docker — forever.</p>
   </div>
@@ -272,9 +272,45 @@ footer{border-top:1px solid var(--border);padding:56px 0;position:relative;z-ind
 <div class="demo-cta fade-up">
   <p style="font-size:11px;color:var(--muted);margin-bottom:20px;letter-spacing:0.15em;text-transform:uppercase">See it in action</p>
   <h2 style="margin-bottom:16px">Watch the full escalation<br>chain live.</h2>
-  <p style="font-size:14px;color:var(--dim);margin-bottom:36px;max-width:420px;margin-left:auto;margin-right:auto;line-height:1.75">The interactive demo walks through every step — from daily check-in to worst-case welfare check. No sign-up needed.</p>
-  <a href="/demo" class="btn-red" style="margin:0 auto">Open Live Demo <span class="arr">→</span></a>
+  <p style="font-size:14px;color:var(--dim);margin-bottom:36px;max-width:420px;margin-left:auto;margin-right:auto;line-height:1.75">The interactive tester walks through every step — from daily check-in to worst-case welfare check. No sign-up needed.</p>
+  <a href="/tester" class="btn-red" style="margin:0 auto">Open Escalation Tester <span class="arr">→</span></a>
 </div>
+
+<section id="self-hosting" style="padding:96px 0;border-top:1px solid var(--border)">
+  <div class="container">
+    <div class="fade-up" style="text-align:center;margin-bottom:64px">
+      <p style="font-size:11px;color:var(--muted);margin-bottom:20px;letter-spacing:0.15em;text-transform:uppercase">Own your data</p>
+      <h2>Self-host it.</h2>
+      <p style="font-size:16px;color:var(--dim);max-width:480px;margin:16px auto 0;line-height:1.8">Still Here is fully open source and self-hostable. Run it on your own server with Docker Compose. Use your own push provider, email server, and database.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;max-width:900px;margin:0 auto 48px" class="fade-up">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px">
+        <div style="font-size:22px;margin-bottom:12px">📦</div>
+        <div style="font-weight:600;margin-bottom:6px">Docker Compose</div>
+        <div style="font-size:13px;color:var(--dim);line-height:1.6">One command to run the full stack — API, worker, scheduler, Redis.</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px">
+        <div style="font-size:22px;margin-bottom:12px">🔔</div>
+        <div style="font-weight:600;margin-bottom:6px">No Firebase required</div>
+        <div style="font-size:13px;color:var(--dim);line-height:1.6">Use Web Push with your own VAPID keys — no Google account needed.</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px">
+        <div style="font-size:22px;margin-bottom:12px">📧</div>
+        <div style="font-weight:600;margin-bottom:6px">SMTP or Resend</div>
+        <div style="font-size:13px;color:var(--dim);line-height:1.6">Bring your own mail server or use Resend. Same emails, your infrastructure.</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px">
+        <div style="font-size:22px;margin-bottom:12px">🔒</div>
+        <div style="font-weight:600;margin-bottom:6px">Private access via Netcore</div>
+        <div style="font-size:13px;color:var(--dim);line-height:1.6">Give contacts encrypted P2P access to your instance — no open ports needed.</div>
+      </div>
+    </div>
+    <div style="text-align:center;display:flex;gap:16px;justify-content:center;flex-wrap:wrap" class="fade-up">
+      <a href="https://github.com/xyzmr114/stillhere/blob/main/docs/self-hosting.md" target="_blank" rel="noopener" class="btn-red">Read the Self-Hosting Guide <span class="arr">→</span></a>
+      <a href="https://github.com/xyzmr114/stillhere" target="_blank" rel="noopener" class="btn-outline">View on GitHub</a>
+    </div>
+  </div>
+</section>
 </div>
 
 <footer>
@@ -283,9 +319,9 @@ footer{border-top:1px solid var(--border);padding:56px 0;position:relative;z-ind
       <div class="foot-logo">Still Here</div>
       <p class="foot-tagline">Built with care, for the people who deserve a quiet safety net. No panic. No 911. No drama.</p>
     </div>
-    <div class="foot-col"><h4>Product</h4><div class="foot-links"><a href="#how">How It Works</a><a href="#features">Features</a><a href="#pricing">Pricing</a><a href="/demo">Live Demo</a></div></div>
+    <div class="foot-col"><h4>Product</h4><div class="foot-links"><a href="#how">How It Works</a><a href="#features">Features</a><a href="#pricing">Pricing</a><a href="/tester">Live Demo</a></div></div>
     <div class="foot-col"><h4>Account</h4><div class="foot-links"><a href="/app">Get Started</a><a href="/app">Log In</a><a href="/reset-password">Forgot Password</a></div></div>
-    <div class="foot-col"><h4>Open Source</h4><div class="foot-links"><a href="https://github.com/xyzmr114/stillhere" target="_blank" rel="noopener">GitHub</a><a href="https://github.com/xyzmr114/stillhere" target="_blank" rel="noopener">Docker Hub</a></div></div>
+    <div class="foot-col"><h4>Self-Hosting</h4><div class="foot-links"><a href="https://github.com/xyzmr114/stillhere" target="_blank" rel="noopener">GitHub</a><a href="https://github.com/xyzmr114/stillhere/blob/main/docs/self-hosting.md" target="_blank" rel="noopener">Setup Guide</a><a href="https://github.com/xyzmr114/stillhere/blob/main/docs/env-reference.md" target="_blank" rel="noopener">Env Reference</a><a href="https://github.com/xyzmr114/stillhere/blob/main/docs/netcore.md" target="_blank" rel="noopener">Private Access</a></div></div>
     <div class="foot-col"><h4>Legal &amp; Info</h4><div class="foot-links"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/consent">Consent</a><a href="/contact">Contact</a><a href="/sitemap">Sitemap</a></div></div>
   </div>
   <div class="foot-bottom">

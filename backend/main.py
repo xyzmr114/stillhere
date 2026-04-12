@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 
-from routes import users, checkin, contacts, confirm, demo, mutual, groups, portal, family, webhooks, api_keys, stripe_payments, contact
+from routes import users, checkin, contacts, confirm, demo, mutual, groups, portal, family, webhooks, api_keys, stripe_payments, contact, netcore
 
 app = FastAPI(title="Still Here", version="1.0.0")
 
@@ -54,13 +54,14 @@ app.include_router(webhooks.router)
 app.include_router(api_keys.router)
 app.include_router(stripe_payments.router)
 app.include_router(contact.router)
+app.include_router(netcore.router)
 
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
 
 
-@app.get("/demo")
-def serve_demo():
-    return FileResponse(FRONTEND / "demo.html")
+@app.get("/tester")
+def serve_tester():
+    return FileResponse(FRONTEND / "tester.html")
 
 
 @app.get("/health")

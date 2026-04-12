@@ -14,3 +14,6 @@ email-validator
 resend
 twilio
 stripe
+pywebpush
+py-vapid
+aiosmtplib

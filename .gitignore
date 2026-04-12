@@ -54,11 +54,23 @@ CLAUDE.md
 # Task output files (scratch work)
 TASK*_OUTPUT.md
 
-# Docs/plans (internal, not for public repo)
-docs/
+# Internal planning docs (not for public repo)
+docs/PLAN*.md
+docs/SPEC*.md
+docs/ROADMAP.md
+docs/*.md~
+docs/36\ hr\ hackathon\ plan.md
 
 # Firebase service account keys
 firebase/
+
+# Netcore — binary, DB (has private key material), lock files
+netcore/ncp2p
+netcore/ncp2p-linux-x86_64.zip
+netcore/nc.db*
+
+# R history
+.Rhistory
 
 # Stray root duplicates
 /consent.html

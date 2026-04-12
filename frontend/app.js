@@ -157,7 +157,7 @@ function switchTab(tabName) {
     });
     if (tabName === "activity") loadActivity();
     if (tabName === "contacts") loadGroups();
-    if (tabName === "settings") { loadFamily(); loadSensors(); loadApiKeys(); }
+    if (tabName === "settings") { loadFamily(); loadSensors(); loadApiKeys(); loadNetcore(); }
 }
 
 function showToast(message, type) {
@@ -830,21 +830,26 @@ async function registerPushToken() {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
     try {
         const cfg = await getClientConfig();
-        if (!_firebaseInited) {
-            firebase.initializeApp(cfg.firebase);
-            _firebaseInited = true;
-        }
         const reg = await navigator.serviceWorker.ready;
-        const messaging = firebase.messaging();
-        messaging.onMessage((payload) => {
-            new Notification(payload.notification.title, { body: payload.notification.body });
-        });
-        const token = await messaging.getToken({ vapidKey: cfg.vapidKey, serviceWorkerRegistration: reg });
-        if (token) {
-            await api("/users/device-token", {
-                method: "POST",
-                body: JSON.stringify({ token }),
+        if (cfg.firebase?.apiKey) {
+            if (!_firebaseInited) {
+                firebase.initializeApp(cfg.firebase);
+                _firebaseInited = true;
+            }
+            const messaging = firebase.messaging();
+            messaging.onMessage((payload) => {
+                new Notification(payload.notification?.title || "Still Here", { body: payload.notification?.body || "" });
             });
+            const token = await messaging.getToken({ vapidKey: cfg.vapidKey, serviceWorkerRegistration: reg });
+            if (token) {
+                await api("/users/device-token", { method: "POST", body: JSON.stringify({ token }) });
+            }
+        } else if (cfg.vapidKey) {
+            const sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: cfg.vapidKey,
+            });
+            await api("/users/web-push-subscribe", { method: "POST", body: JSON.stringify({ subscription: sub.toJSON() }) });
         }
     } catch (e) {
         console.warn("Push registration failed:", e);
@@ -1194,6 +1199,89 @@ async function deleteApiKey(keyId) {
 }
 
 document.getElementById("generate-api-key-btn")?.addEventListener("click", generateApiKey);
+
+async function loadNetcore() {
+    const status = document.getElementById("netcore-status");
+    const identityBlock = document.getElementById("netcore-identity-block");
+    const peersBlock = document.getElementById("netcore-peers-block");
+    const addBtn = document.getElementById("netcore-add-btn");
+    status.textContent = "Checking Netcore connection...";
+    try {
+        const [identityData, deviceData, peersData] = await Promise.all([
+            api("/netcore/identity"),
+            api("/netcore/device"),
+            api("/netcore/peers"),
+        ]);
+        status.textContent = "";
+        identityBlock.style.display = "";
+        addBtn.style.display = "";
+        document.getElementById("netcore-identity-json").textContent = JSON.stringify(identityData, null, 2);
+        const internalIp = deviceData.internal_ip || "";
+        document.getElementById("netcore-internal-ip").textContent = internalIp;
+        document.getElementById("netcore-app-url").textContent = `http://${internalIp}:8000/app`;
+        const peers = peersData.peers || [];
+        if (peers.length > 0) {
+            peersBlock.style.display = "";
+            document.getElementById("netcore-peer-list").innerHTML = peers.map(p =>
+                `<div class="netcore-peer-item">
+                    <span class="netcore-peer-dot ${p.connected ? 'online' : 'offline'}"></span>
+                    <span>${esc(p.device || p.pub_key_b36?.slice(0, 12) + "...")}</span>
+                    <span style="opacity:.4;font-size:11px">${esc(p.internal_ip || "")}</span>
+                    <button class="netcore-remove-btn btn-secondary" data-key="${esc(p.pub_key_b36)}">Remove</button>
+                </div>`
+            ).join("");
+            document.querySelectorAll(".netcore-remove-btn").forEach(btn => {
+                btn.addEventListener("click", async () => {
+                    try {
+                        await api(`/netcore/peer-users/${btn.dataset.key}`, { method: "DELETE" });
+                        showToast("Peer removed");
+                        loadNetcore();
+                    } catch { showToast("Failed to remove peer", "error"); }
+                });
+            });
+        } else {
+            peersBlock.style.display = "";
+            document.getElementById("netcore-peer-list").innerHTML = `<p class="settings-hint">No peers connected yet. Share your identity above to get started.</p>`;
+        }
+    } catch (e) {
+        if (e.message?.includes("503") || e.message?.includes("not running")) {
+            status.innerHTML = `<span style="color:var(--red)">Netcore client not running.</span> Start it with <code>./netcore/ncp2p</code> on your server.`;
+        } else {
+            status.textContent = "Netcore unavailable.";
+        }
+        identityBlock.style.display = "none";
+        peersBlock.style.display = "none";
+        addBtn.style.display = "none";
+    }
+}
+
+document.getElementById("netcore-copy-btn")?.addEventListener("click", () => {
+    const json = document.getElementById("netcore-identity-json").textContent;
+    navigator.clipboard.writeText(json).then(() => showToast("Copied!"));
+});
+
+document.getElementById("netcore-add-btn")?.addEventListener("click", () => {
+    document.getElementById("netcore-add-form").style.display = "";
+    document.getElementById("netcore-add-btn").style.display = "none";
+});
+
+document.getElementById("netcore-peer-cancel-btn")?.addEventListener("click", () => {
+    document.getElementById("netcore-add-form").style.display = "none";
+    document.getElementById("netcore-add-btn").style.display = "";
+});
+
+document.getElementById("netcore-peer-submit-btn")?.addEventListener("click", async () => {
+    const raw = document.getElementById("netcore-peer-json").value.trim();
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch { showToast("Invalid JSON", "error"); return; }
+    try {
+        await api("/netcore/peer-users", { method: "POST", body: JSON.stringify(parsed) });
+        showToast("Peer added — connection establishing");
+        document.getElementById("netcore-add-form").style.display = "none";
+        document.getElementById("netcore-peer-json").value = "";
+        loadNetcore();
+    } catch (e) { showToast(e.message || "Failed to add peer", "error"); }
+});
 document.getElementById("api-key-copy-btn")?.addEventListener("click", () => {
     const key = document.getElementById("api-key-value").textContent;
     navigator.clipboard.writeText(key).then(() => showToast("Copied!"));
