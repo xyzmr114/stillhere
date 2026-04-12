@@ -57,7 +57,6 @@ TASK*_OUTPUT.md
 # Internal planning docs (not for public repo)
 docs/PLAN*.md
 docs/SPEC*.md
-docs/ROADMAP.md
 docs/*.md~
 docs/36\ hr\ hackathon\ plan.md
 
@@ -71,6 +70,9 @@ netcore/nc.db*
 
 # R history
 .Rhistory
+
+# Hackathon / internal notes
+JUDGING.md
 
 # Stray root duplicates
 /consent.html
