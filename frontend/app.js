@@ -31,15 +31,24 @@ function esc(s) {
 }
 
 let _auth0Client = null;
+let _clientConfig = null;
 
 const AUTH0_CALLBACK_URL = window.location.origin + "/app";
+
+async function getClientConfig() {
+    if (_clientConfig) return _clientConfig;
+    const res = await fetch("/api/config");
+    _clientConfig = await res.json();
+    return _clientConfig;
+}
 
 async function getAuth0Client() {
     if (_auth0Client) return _auth0Client;
     if (!window.auth0) return null;
+    const cfg = await getClientConfig();
     _auth0Client = await auth0.createAuth0Client({
-        domain: "dev-wgajermr67lbotj1.us.auth0.com",
-        clientId: "WKyQd9vwwOILhUGZuJT0WNnBVrjG7nmy",
+        domain: cfg.auth0Domain,
+        clientId: cfg.auth0ClientId,
         cacheLocation: "localstorage",
         authorizationParams: {
             redirect_uri: AUTH0_CALLBACK_URL,
@@ -815,25 +824,14 @@ document.getElementById("notif-skip-btn").addEventListener("click", () => {
     document.getElementById("notif-prompt").style.display = "none";
 });
 
-const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyCHw-TesG0QM1y8OXgf634c2y4xHCzZsB0",
-    authDomain: "still-here-64e9c.firebaseapp.com",
-    projectId: "still-here-64e9c",
-    storageBucket: "still-here-64e9c.firebasestorage.app",
-    messagingSenderId: "497581151762",
-    appId: "1:497581151762:web:55c68f60130077a3beaacb",
-    measurementId: "G-RGG52ZK2ER",
-};
-
-const VAPID_KEY = "BLr2qG2lklP52PxOz6ocpBcsOezrbmLb_0O0leXMSyUnWm-H75wR5OwIeAsSk0tRCY0c4_aukzGaSa27GgGZb9g";
-
 let _firebaseInited = false;
 
 async function registerPushToken() {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
     try {
+        const cfg = await getClientConfig();
         if (!_firebaseInited) {
-            firebase.initializeApp(FIREBASE_CONFIG);
+            firebase.initializeApp(cfg.firebase);
             _firebaseInited = true;
         }
         const reg = await navigator.serviceWorker.ready;
@@ -841,7 +839,7 @@ async function registerPushToken() {
         messaging.onMessage((payload) => {
             new Notification(payload.notification.title, { body: payload.notification.body });
         });
-        const token = await messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+        const token = await messaging.getToken({ vapidKey: cfg.vapidKey, serviceWorkerRegistration: reg });
         if (token) {
             await api("/users/device-token", {
                 method: "POST",

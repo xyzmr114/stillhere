@@ -119,4 +119,40 @@ def serve_sitemap_xml():
     return Response(content=(FRONTEND / "sitemap.xml").read_text(), media_type="application/xml")
 
 
+@app.get("/sw-config.js")
+def serve_sw_config():
+    from config import settings
+    js = f"""self.__FIREBASE_CONFIG = {{
+  apiKey: {repr(settings.firebase_api_key)},
+  authDomain: {repr(settings.firebase_auth_domain)},
+  projectId: {repr(settings.firebase_project_id)},
+  storageBucket: {repr(settings.firebase_storage_bucket)},
+  messagingSenderId: {repr(settings.firebase_messaging_sender_id)},
+  appId: {repr(settings.firebase_app_id)},
+  measurementId: {repr(settings.firebase_measurement_id)},
+}};
+self.__VAPID_KEY = {repr(settings.firebase_vapid_key)};
+"""
+    return Response(content=js, media_type="application/javascript")
+
+
+@app.get("/api/config")
+def serve_client_config():
+    from config import settings
+    return {
+        "firebase": {
+            "apiKey": settings.firebase_api_key,
+            "authDomain": settings.firebase_auth_domain,
+            "projectId": settings.firebase_project_id,
+            "storageBucket": settings.firebase_storage_bucket,
+            "messagingSenderId": settings.firebase_messaging_sender_id,
+            "appId": settings.firebase_app_id,
+            "measurementId": settings.firebase_measurement_id,
+        },
+        "vapidKey": settings.firebase_vapid_key,
+        "auth0Domain": settings.auth0_domain,
+        "auth0ClientId": settings.auth0_client_id,
+    }
+
+
 app.mount("/", StaticFiles(directory=str(FRONTEND)), name="static")
