@@ -855,6 +855,23 @@ label input { margin-top: 8px; }
     background: var(--success-glow);
 }
 
+.snooze-btn.active {
+    border-color: var(--warning);
+    color: var(--warning);
+    background: var(--warning-glow);
+}
+
+.vacation-status-text {
+    font-size: 13px;
+    color: var(--warning);
+    background: rgba(255, 152, 0, 0.08);
+    border: 1px solid rgba(255, 152, 0, 0.25);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    text-align: center;
+}
+
 #bottom-nav {
     display: none;
     position: fixed;

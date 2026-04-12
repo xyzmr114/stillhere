@@ -342,10 +342,9 @@ async function loadMain() {
     updateSnoozeStatus(me.snooze_until);
     const vacStartEl = document.getElementById("vacation-start");
     const vacEndEl = document.getElementById("vacation-end");
-    if (vacStartEl && me.vacation_start) vacStartEl.value = me.vacation_start.slice(0, 16);
-    else if (vacStartEl) vacStartEl.value = "";
-    if (vacEndEl && me.vacation_end) vacEndEl.value = me.vacation_end.slice(0, 16);
-    else if (vacEndEl) vacEndEl.value = "";
+    if (vacStartEl) vacStartEl.value = me.vacation_start ? utcToLocalInput(me.vacation_start) : "";
+    if (vacEndEl) vacEndEl.value = me.vacation_end ? utcToLocalInput(me.vacation_end) : "";
+    updateVacationStatus(me.vacation_start, me.vacation_end);
     startCountdown(me.checkin_time);
 
     if (!me.has_paid) {
@@ -686,6 +685,7 @@ document.querySelectorAll(".snooze-btn").forEach((btn) => {
                 body: JSON.stringify({ snooze_until: snoozeUntil }),
             });
             updateSnoozeStatus(snoozeUntil);
+            if (snoozeUntil) btn.classList.add("active");
             showToast(snoozeUntil ? `Snoozed for ${hours}h` : "Check-ins resumed", snoozeUntil ? "warning" : "success");
         } catch (e) {
             showToast(e.message, "error");
@@ -710,6 +710,7 @@ document.getElementById("save-vacation-btn").addEventListener("click", async () 
         });
         document.getElementById("vacation-error").textContent = "";
         showToast("Vacation mode saved", "success");
+        updateVacationStatus(new Date(start).toISOString(), new Date(end).toISOString());
         await loadStatus();
     } catch (e) {
         document.getElementById("vacation-error").textContent = e.message;
@@ -725,6 +726,7 @@ document.getElementById("clear-vacation-btn").addEventListener("click", async ()
         document.getElementById("vacation-start").value = "";
         document.getElementById("vacation-end").value = "";
         document.getElementById("vacation-error").textContent = "";
+        updateVacationStatus(null, null);
         showToast("Vacation mode cleared", "success");
         await loadStatus();
     } catch (e) {
@@ -732,8 +734,16 @@ document.getElementById("clear-vacation-btn").addEventListener("click", async ()
     }
 });
 
+function utcToLocalInput(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const pad = n => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function updateSnoozeStatus(snoozeUntil) {
     const el = document.getElementById("snooze-status");
+    document.querySelectorAll(".snooze-btn").forEach(b => b.classList.remove("active"));
     if (snoozeUntil && new Date(snoozeUntil) > new Date()) {
         const remaining = new Date(snoozeUntil) - new Date();
         const hrs = Math.floor(remaining / 3600000);
@@ -743,6 +753,23 @@ function updateSnoozeStatus(snoozeUntil) {
     } else {
         el.textContent = "Check-ins are active";
         el.classList.remove("snoozing");
+    }
+}
+
+function updateVacationStatus(start, end) {
+    const card = document.getElementById("vacation-status");
+    if (!card) return;
+    const now = new Date();
+    const s = start ? new Date(start) : null;
+    const e = end ? new Date(end) : null;
+    if (s && e && now >= s && now <= e) {
+        card.textContent = "Vacation active — check-ins paused";
+        card.style.display = "";
+    } else if (s && e && now < s) {
+        card.textContent = `Scheduled: ${s.toLocaleDateString()} – ${e.toLocaleDateString()}`;
+        card.style.display = "";
+    } else {
+        card.style.display = "none";
     }
 }
 
