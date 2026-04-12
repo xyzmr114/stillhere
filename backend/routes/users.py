@@ -20,6 +20,7 @@ class RegisterIn(BaseModel):
     name: str
     password: str
     phone: str = None
+    accepted_tos: bool = False
 
 
 class LoginIn(BaseModel):
@@ -78,13 +79,15 @@ class UserPatch(BaseModel):
 @router.post("/register")
 @limiter.limit("5/minute")
 def register(request: Request, body: RegisterIn, db=Depends(get_session)):
+    if not body.accepted_tos:
+        raise HTTPException(status_code=400, detail="You must accept the Terms of Service")
     existing = get_user_by_email(db, body.email)
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
     pw_hash = hash_password(body.password)
     result = db.execute(
         text(
-            "INSERT INTO users (email, name, password_hash, phone) VALUES (:email, :name, :pw, :phone) RETURNING id"
+            "INSERT INTO users (email, name, password_hash, phone, accepted_tos) VALUES (:email, :name, :pw, :phone, TRUE) RETURNING id"
         ),
         {"email": body.email, "name": body.name, "pw": pw_hash, "phone": body.phone},
     ).first()

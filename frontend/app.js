@@ -1,5 +1,11 @@
 const API = window.location.origin;
 
+let _deferredInstallPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    _deferredInstallPrompt = e;
+});
+
 function getToken() {
     return localStorage.getItem("token");
 }
@@ -151,19 +157,25 @@ document.getElementById("register-btn").addEventListener("click", async () => {
     const email = document.getElementById("reg-email").value.trim();
     const phone = document.getElementById("reg-phone").value.trim() || null;
     const password = document.getElementById("reg-password").value;
+    const tos = document.getElementById("reg-tos").checked;
+    const errEl = document.getElementById("register-error");
     if (!name || !email || !password) {
-        document.getElementById("register-error").textContent = "Name, email, and password are required";
+        errEl.textContent = "Name, email, and password are required";
+        return;
+    }
+    if (!tos) {
+        errEl.textContent = "You must agree to the Terms of Service and Privacy Policy";
         return;
     }
     try {
         const data = await api("/users/register", {
             method: "POST",
-            body: JSON.stringify({ email, name, password, phone }),
+            body: JSON.stringify({ email, name, password, phone, accepted_tos: true }),
         });
         setToken(data.token);
         await loadMain();
     } catch (e) {
-        document.getElementById("register-error").textContent = e.message;
+        errEl.textContent = e.message;
     }
 });
 
@@ -366,6 +378,7 @@ async function loadMain() {
 
     await Promise.all([loadStatus(), loadStats(me), loadContacts(), loadBuddyStatus()]);
     maybeShowOnboarding();
+    maybeShowPushNudge();
     api("/checkin/prompt").then(d => {
         const el = document.getElementById("daily-prompt");
         if (el && d.prompt) {
@@ -612,6 +625,29 @@ async function loadActivity() {
         box.title = ds;
         bar.appendChild(box);
     }
+    // 30-day calendar
+    const grid = document.getElementById("history-cal-grid");
+    if (grid) {
+        grid.innerHTML = "";
+        const today = new Date();
+        let hitCount = 0;
+        for (let i = 29; i >= 0; i--) {
+            const d = new Date(today);
+            d.setDate(d.getDate() - i);
+            const ds = d.toISOString().slice(0, 10);
+            const isPast = i > 0;
+            const hit = checkins.some(c => c.checked_in_at && c.checked_in_at.slice(0, 10) === ds);
+            if (hit) hitCount++;
+            const cell = document.createElement("div");
+            cell.className = "hcal-cell" + (hit ? " hcal-hit" : i === 0 ? " hcal-today" : isPast ? " hcal-miss" : " hcal-future");
+            const label = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+            cell.title = label + (hit ? " ✓" : "");
+            grid.appendChild(cell);
+        }
+        const countEl = document.getElementById("history-cal-count");
+        if (countEl) countEl.textContent = `${hitCount}/30`;
+    }
+
     const list = document.getElementById("activity-list");
     list.innerHTML = "";
     const merged = [];
@@ -1257,6 +1293,92 @@ document.getElementById("api-key-modal-close-btn")?.addEventListener("click", ()
     document.getElementById("api-key-modal").style.display = "none";
 });
 
+// ─── PWA Install Sheet ───────────────────────────────────────────────────────
+
+function isIOS() { return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream; }
+function isAndroid() { return /Android/.test(navigator.userAgent); }
+function isInStandaloneMode() {
+    return window.navigator.standalone === true ||
+           window.matchMedia("(display-mode: standalone)").matches;
+}
+
+function maybeShowPwaSheet() {
+    if (isInStandaloneMode()) return;
+    if (!isIOS() && !isAndroid()) return;
+    if (localStorage.getItem("pwa_sheet_dismissed")) return;
+    const sheet = document.getElementById("pwa-sheet");
+    if (isIOS()) {
+        document.getElementById("pwa-ios").style.display = "";
+    } else if (_deferredInstallPrompt) {
+        document.getElementById("pwa-android-prompt").style.display = "";
+    } else {
+        document.getElementById("pwa-android-manual").style.display = "";
+    }
+    sheet.style.display = "flex";
+}
+
+function dismissPwaSheet() {
+    localStorage.setItem("pwa_sheet_dismissed", "1");
+    document.getElementById("pwa-sheet").style.display = "none";
+}
+
+async function triggerPwaInstall() {
+    if (!_deferredInstallPrompt) return;
+    _deferredInstallPrompt.prompt();
+    const { outcome } = await _deferredInstallPrompt.userChoice;
+    _deferredInstallPrompt = null;
+    if (outcome === "accepted") {
+        localStorage.setItem("pwa_sheet_dismissed", "1");
+        document.getElementById("pwa-sheet").style.display = "none";
+    }
+}
+
+// ─── Push Nudge ──────────────────────────────────────────────────────────────
+
+function maybeShowPushNudge() {
+    if (!("Notification" in window)) return;
+    const nudge = document.getElementById("push-nudge");
+    const textEl = document.getElementById("push-nudge-text");
+    const btn = document.getElementById("push-nudge-btn");
+    if (Notification.permission === "default") {
+        if (localStorage.getItem("push_nudge_dismissed")) return;
+        textEl.textContent = "Enable notifications to receive your daily check-in.";
+        btn.textContent = "Enable";
+        btn.style.display = "";
+        nudge.style.display = "flex";
+    } else if (Notification.permission === "denied") {
+        if (localStorage.getItem("push_denied_dismissed")) return;
+        textEl.textContent = "Notifications are blocked. Go to browser Settings → Site Settings to re-enable.";
+        btn.style.display = "none";
+        nudge.style.display = "flex";
+        nudge.classList.add("push-nudge-warn");
+    }
+}
+
+function dismissPushNudge() {
+    const key = Notification.permission === "denied" ? "push_denied_dismissed" : "push_nudge_dismissed";
+    localStorage.setItem(key, "1");
+    document.getElementById("push-nudge").style.display = "none";
+}
+
+async function nudgeRequestPush() {
+    const permission = await Notification.requestPermission();
+    document.getElementById("push-nudge").style.display = "none";
+    if (permission === "granted") {
+        showToast("Notifications enabled ✓", "success");
+        try {
+            const reg = await navigator.serviceWorker.ready;
+            const cfg = await getClientConfig();
+            if (cfg.vapidKey && !cfg.firebase?.apiKey) {
+                const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: cfg.vapidKey });
+                await api("/users/web-push-subscribe", { method: "POST", body: JSON.stringify({ subscription: sub.toJSON() }) });
+            }
+        } catch {}
+    } else {
+        maybeShowPushNudge();
+    }
+}
+
 // ─── Onboarding ──────────────────────────────────────────────────────────────
 
 let _obStep = 1;
@@ -1376,6 +1498,7 @@ function obFinish() {
     localStorage.setItem("onboarding_done", "1");
     document.getElementById("onboarding-overlay").style.display = "none";
     loadContacts();
+    setTimeout(() => maybeShowPwaSheet(), 600);
 }
 
 // ─── End Onboarding ───────────────────────────────────────────────────────────

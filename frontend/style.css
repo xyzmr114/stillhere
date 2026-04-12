@@ -1571,3 +1571,305 @@ label input { margin-top: 8px; }
     text-align: center;
     margin: 24px 0 20px;
 }
+
+/* ─── PWA Install Sheet ──────────────────────────────────────────────────── */
+
+#pwa-sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+}
+
+#pwa-sheet-inner {
+    width: 100%;
+    max-width: 480px;
+    background: #111;
+    border-radius: 20px 20px 0 0;
+    padding: 24px 24px 40px;
+    position: relative;
+    animation: sheetSlideUp 0.3s ease;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+@keyframes sheetSlideUp {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+}
+
+#pwa-sheet-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: rgba(255,255,255,0.08);
+    border: none;
+    color: rgba(255,255,255,0.5);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pwa-sheet-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #F5F5F5;
+    margin-bottom: 8px;
+    padding-right: 32px;
+}
+
+.pwa-sheet-sub {
+    font-size: 13px;
+    color: rgba(255,255,255,0.5);
+    line-height: 1.6;
+    margin: 0 0 20px;
+}
+
+.pwa-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 20px;
+}
+
+.pwa-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.pwa-step-body { flex: 1; }
+
+.pwa-step-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #F5F5F5;
+    margin-bottom: 4px;
+}
+
+.pwa-step-hint {
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+}
+
+.pwa-step-chip {
+    display: inline-block;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 13px;
+    color: #F5F5F5;
+    margin: 4px 0;
+}
+
+.pwa-icon-inline {
+    font-style: normal;
+    background: #007AFF;
+    color: #fff;
+    border-radius: 6px;
+    padding: 1px 5px;
+    font-size: 12px;
+}
+
+.pwa-arrow-indicator {
+    text-align: center;
+    margin-top: 16px;
+}
+
+.pwa-bounce-arrow {
+    font-size: 28px;
+    color: #FF3B3B;
+    animation: pwaArrowBounce 1.2s ease infinite;
+    display: block;
+}
+
+@keyframes pwaArrowBounce {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(6px); }
+}
+
+.pwa-arrow-label {
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+    margin-top: 4px;
+}
+
+.pwa-install-btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    background: #FF3B3B;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 10px;
+}
+
+.pwa-later-btn {
+    display: block;
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.3);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 8px;
+    text-align: center;
+}
+
+/* ─── Push Nudge Banner ──────────────────────────────────────────────────── */
+
+#push-nudge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,59,59,0.08);
+    border: 1px solid rgba(255,59,59,0.25);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.7);
+    line-height: 1.4;
+}
+
+#push-nudge.push-nudge-warn {
+    background: rgba(255,152,0,0.08);
+    border-color: rgba(255,152,0,0.25);
+}
+
+#push-nudge-text { flex: 1; }
+
+.push-nudge-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+    align-items: center;
+}
+
+#push-nudge-btn {
+    padding: 6px 12px;
+    background: #FF3B3B;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.push-nudge-dismiss {
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.3);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+}
+
+/* ─── TOS Checkbox ───────────────────────────────────────────────────────── */
+
+.tos-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.5);
+    line-height: 1.5;
+    margin: 4px 0 14px;
+    cursor: pointer;
+}
+
+.tos-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    accent-color: #FF3B3B;
+    cursor: pointer;
+}
+
+.tos-label a { color: rgba(255,255,255,0.7); text-decoration: underline; }
+.tos-label a:hover { color: #fff; }
+
+/* ─── 30-Day History Calendar ────────────────────────────────────────────── */
+
+#history-calendar {
+    background: #111;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.history-cal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+}
+
+.history-cal-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.history-cal-count {
+    font-size: 13px;
+    font-weight: 700;
+    color: #4ecca3;
+}
+
+#history-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 4px;
+}
+
+.hcal-cell {
+    aspect-ratio: 1;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.05);
+}
+
+.hcal-cell.hcal-hit     { background: #4ecca3; }
+.hcal-cell.hcal-miss    { background: rgba(255,59,59,0.25); }
+.hcal-cell.hcal-today   { background: rgba(255,255,255,0.15); outline: 1px solid rgba(255,255,255,0.3); }
+.hcal-cell.hcal-future  { background: rgba(255,255,255,0.04); }
+
+.history-cal-legend {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-top: 10px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+}
+
+.hcl-box {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    display: inline-block;
+}
+
+.hcl-hit    { background: #4ecca3; }
+.hcl-miss   { background: rgba(255,59,59,0.25); }
+.hcl-future { background: rgba(255,255,255,0.08); }

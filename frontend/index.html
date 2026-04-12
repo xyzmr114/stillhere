@@ -39,6 +39,10 @@
                 <input type="email" id="reg-email" placeholder="Email" autocomplete="email">
                 <input type="tel" id="reg-phone" placeholder="Phone (+1...)" autocomplete="tel">
                 <input type="password" id="reg-password" placeholder="Password" autocomplete="new-password">
+                <label class="tos-label">
+                    <input type="checkbox" id="reg-tos">
+                    <span>I agree to the <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a></span>
+                </label>
                 <button id="register-btn">Sign Up</button>
                 <p class="switch-link">Already have an account? <a href="#" id="show-login">Log in</a></p>
             </div>
@@ -164,11 +168,84 @@
             </div>
         </div>
 
+        <!-- PWA install bottom sheet -->
+        <div id="pwa-sheet" style="display:none">
+            <div id="pwa-sheet-inner">
+                <button id="pwa-sheet-close" onclick="dismissPwaSheet()">✕</button>
+                <!-- iOS -->
+                <div id="pwa-ios" style="display:none">
+                    <div class="pwa-sheet-title">Add Still Here to your Home Screen</div>
+                    <p class="pwa-sheet-sub">Install it as an app for the best experience — faster, full screen, works offline.</p>
+                    <div class="pwa-steps">
+                        <div class="pwa-step">
+                            <div class="pwa-step-arrow pwa-arrow-down">↓</div>
+                            <div class="pwa-step-body">
+                                <div class="pwa-step-label">1. Tap the Share button</div>
+                                <div class="pwa-step-hint">The <span class="pwa-icon-inline">⬆</span> icon at the bottom of Safari</div>
+                            </div>
+                        </div>
+                        <div class="pwa-step">
+                            <div class="pwa-step-body">
+                                <div class="pwa-step-label">2. Scroll down and tap</div>
+                                <div class="pwa-step-chip">Add to Home Screen</div>
+                            </div>
+                        </div>
+                        <div class="pwa-step">
+                            <div class="pwa-step-body">
+                                <div class="pwa-step-label">3. Tap Add</div>
+                                <div class="pwa-step-hint">Still Here will appear on your home screen like any other app.</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pwa-arrow-indicator" id="pwa-ios-arrow">
+                        <div class="pwa-bounce-arrow">↓</div>
+                        <div class="pwa-arrow-label">Share button is down here</div>
+                    </div>
+                </div>
+                <!-- Android with install prompt -->
+                <div id="pwa-android-prompt" style="display:none">
+                    <div class="pwa-sheet-title">Install Still Here</div>
+                    <p class="pwa-sheet-sub">Add to your home screen for the full app experience — faster, full screen, push notifications.</p>
+                    <button class="pwa-install-btn" id="pwa-install-btn" onclick="triggerPwaInstall()">Install app</button>
+                    <button class="pwa-later-btn" onclick="dismissPwaSheet()">Maybe later</button>
+                </div>
+                <!-- Android manual fallback -->
+                <div id="pwa-android-manual" style="display:none">
+                    <div class="pwa-sheet-title">Add Still Here to your Home Screen</div>
+                    <p class="pwa-sheet-sub">Install for the full app experience — faster, full screen, push notifications.</p>
+                    <div class="pwa-steps">
+                        <div class="pwa-step">
+                            <div class="pwa-step-body">
+                                <div class="pwa-step-label">1. Tap the menu</div>
+                                <div class="pwa-step-chip">⋮</div>
+                                <div class="pwa-step-hint">Top right corner of Chrome</div>
+                            </div>
+                        </div>
+                        <div class="pwa-step">
+                            <div class="pwa-step-body">
+                                <div class="pwa-step-label">2. Tap</div>
+                                <div class="pwa-step-chip">Add to Home screen</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="pwa-later-btn" onclick="dismissPwaSheet()">Maybe later</button>
+                </div>
+            </div>
+        </div>
+
         <div id="main-screen" style="display:none">
             <div id="tab-content">
                 <div id="tab-home" class="tab-panel active">
                     <div id="vacation-banner" class="vacation-banner" style="display:none">
                         Vacation Mode Active — check-ins paused
+                    </div>
+                    <!-- Push nudge banner -->
+                    <div id="push-nudge" style="display:none">
+                        <div id="push-nudge-text"></div>
+                        <div class="push-nudge-actions">
+                            <button id="push-nudge-btn" onclick="nudgeRequestPush()"></button>
+                            <button class="push-nudge-dismiss" onclick="dismissPushNudge()">✕</button>
+                        </div>
                     </div>
                     <div id="status-card">
                         <div id="status-icon">🛡️</div>
@@ -263,6 +340,18 @@
                         <span id="streak-number" class="streak-value">0</span>
                         <span class="streak-label">Day Streak</span>
                         <div id="streak-bar"></div>
+                    </div>
+                    <div id="history-calendar">
+                        <div class="history-cal-header">
+                            <span class="history-cal-title">Last 30 Days</span>
+                            <span id="history-cal-count" class="history-cal-count"></span>
+                        </div>
+                        <div id="history-cal-grid"></div>
+                        <div class="history-cal-legend">
+                            <span class="hcl-box hcl-miss"></span><span>Missed</span>
+                            <span class="hcl-box hcl-hit"></span><span>Checked in</span>
+                            <span class="hcl-box hcl-future"></span><span>Upcoming</span>
+                        </div>
                     </div>
                     <div id="report-card" style="display:none;margin-bottom:16px;padding:16px;background:#1a1a2e;border-radius:12px">
                         <h3 style="margin:0 0 8px;font-size:18px;color:#4ecca3" id="report-title"></h3>
