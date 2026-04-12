@@ -6,6 +6,7 @@
 Backend: FastAPI + Celery + Supabase + Redis
 Frontend: Vanilla JS PWA
 Deploy: Docker Compose (5 services)
+Mobile: Capacitor (iOS + Android — wraps existing frontend, no rewrite)
 
 ---
 
@@ -17,19 +18,19 @@ Full escalation chain, contact voting, vacation mode, streaks, mutual check-ins,
 
 ## What's Next
 
-### Tier 1 — Before real users
+### Tier 1 — Before real users ✅ Done
 
-- [ ] Rate-limit login/register endpoints
-- [ ] Email verification on signup (currently none)
-- [ ] Delete account (GDPR baseline — wipe user + all contact data)
-- [ ] Contact confirm web screen — no-app-required page for contacts who just got an SMS
+- [x] Rate-limit login/register endpoints
+- [x] Email verification on signup
+- [x] Delete account (GDPR baseline)
+- [x] Contact confirm web screen
 - [ ] Stripe go-live — `sk_test_` → `sk_live_`, wire up webhook in Stripe dashboard
 
 ### Tier 2 — Core UX gaps
 
-- [ ] Snooze / vacation UI — backend supports it, no frontend controls yet
+- [x] Snooze / vacation UI — timezone fix, active states, status card
 - [ ] Check-in history + streak display — tracked in DB, not shown in app
-- [ ] Onboarding flow — new users land in blank state; welcome email covers it but in-app flow missing
+- [ ] Onboarding flow — new users land in blank state
 - [ ] Push permission prompt — no fallback messaging if user blocks notifications
 
 ### Tier 3 — Growth & trust
@@ -39,7 +40,20 @@ Full escalation chain, contact voting, vacation mode, streaks, mutual check-ins,
 - [ ] Mutual check-in UI — backend done (`mutual.py`), no frontend
 - [ ] Family portal UI — backend done, portal page is minimal
 
-### Tier 4 — Self-hosting polish
+### Tier 4 — Mobile apps (Capacitor)
+
+Capacitor wraps the existing `frontend/` in a native shell — no rewrite needed.
+Push notifications via Firebase (already wired). One codebase → iOS + Android.
+
+- [ ] Capacitor project init (`npx cap init`)
+- [ ] iOS target — configure bundle ID, signing, Firebase `GoogleService-Info.plist`
+- [ ] Android target — configure package name, Firebase `google-services.json`
+- [ ] Push notification plugin (`@capacitor/push-notifications`) replacing web push on native
+- [ ] Splash screen + app icon assets
+- [ ] App Store Connect submission
+- [ ] Google Play Console submission
+
+### Tier 5 — Self-hosting polish
 
 - [ ] VAPID key auto-generation on first boot (currently manual)
 - [ ] `netcore-start.sh` idempotency — errors if already initialized
@@ -50,7 +64,6 @@ Full escalation chain, contact voting, vacation mode, streaks, mutual check-ins,
 
 - [ ] Audit log UI (backend tracks events, no frontend)
 - [ ] Alexa account linking (endpoint exists, no setup guide)
-- [ ] iOS/Android wrapper (PWA install works but app store presence helps trust)
 - [ ] i18n — escalation copy is English-only
 - [ ] Shareable streak cards (social/viral)
 - [ ] Multiple check-in windows (morning + night)

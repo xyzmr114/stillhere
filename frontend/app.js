@@ -365,6 +365,7 @@ async function loadMain() {
     }
 
     await Promise.all([loadStatus(), loadStats(me), loadContacts(), loadBuddyStatus()]);
+    maybeShowOnboarding();
     api("/checkin/prompt").then(d => {
         const el = document.getElementById("daily-prompt");
         if (el && d.prompt) {
@@ -1255,6 +1256,129 @@ document.getElementById("api-key-copy-btn")?.addEventListener("click", () => {
 document.getElementById("api-key-modal-close-btn")?.addEventListener("click", () => {
     document.getElementById("api-key-modal").style.display = "none";
 });
+
+// ─── Onboarding ──────────────────────────────────────────────────────────────
+
+let _obStep = 1;
+const OB_TOTAL = 4;
+
+function maybeShowOnboarding() {
+    if (localStorage.getItem("onboarding_done")) return;
+    const contacts = document.querySelectorAll(".contact-card");
+    if (contacts.length > 0) { localStorage.setItem("onboarding_done", "1"); return; }
+    _obStep = 1;
+    obRender();
+    document.getElementById("onboarding-overlay").style.display = "flex";
+}
+
+function obRender() {
+    document.querySelectorAll(".onboarding-step").forEach(s => s.classList.remove("active"));
+    const step = document.querySelector(`.onboarding-step[data-step="${_obStep}"]`);
+    if (step) step.classList.add("active");
+    const pct = _obStep === 5 ? 100 : Math.round(((_obStep - 1) / OB_TOTAL) * 100);
+    document.getElementById("onboarding-progress-bar").style.width = pct + "%";
+}
+
+function obNext() {
+    _obStep++;
+    obRender();
+}
+
+function obBack() {
+    if (_obStep > 1) { _obStep--; obRender(); }
+}
+
+function obSkip() {
+    _obStep = 5;
+    document.getElementById("ob-done-contact").textContent = "— Add a contact in Settings when ready";
+    document.getElementById("ob-done-notif").textContent = "— Enable notifications in Settings when ready";
+    obRender();
+}
+
+function obSkipContact() {
+    document.getElementById("ob-done-contact").textContent = "— Add a contact in Settings when ready";
+    _obStep = 4;
+    obRender();
+}
+
+async function obSaveTime() {
+    const timeVal = document.getElementById("ob-checkin-time").value;
+    const grace = parseInt(document.getElementById("ob-grace").value);
+    try {
+        await api("/users/me", {
+            method: "PATCH",
+            body: JSON.stringify({ checkin_time: timeVal + ":00", grace_minutes: grace }),
+        });
+        document.getElementById("setting-checkin-time").value = timeVal;
+        document.getElementById("setting-grace").value = grace;
+        obNext();
+    } catch (e) {
+        showToast(e.message, "error");
+    }
+}
+
+async function obSaveContact() {
+    const name = document.getElementById("ob-contact-name").value.trim();
+    const phone = document.getElementById("ob-contact-phone").value.trim();
+    const email = document.getElementById("ob-contact-email").value.trim();
+    const errEl = document.getElementById("ob-contact-error");
+    if (!name || !phone) { errEl.textContent = "Name and phone are required"; return; }
+    errEl.textContent = "";
+    try {
+        await api("/contacts", {
+            method: "POST",
+            body: JSON.stringify({ name, phone, email: email || null }),
+        });
+        document.getElementById("ob-done-contact").textContent = `✓ ${name} added as your emergency contact`;
+        await loadContacts();
+        _obStep = 4;
+        obRender();
+    } catch (e) {
+        errEl.textContent = e.message;
+    }
+}
+
+async function obRequestNotif() {
+    const btn = document.getElementById("ob-notif-btn");
+    btn.disabled = true;
+    try {
+        const permission = await Notification.requestPermission();
+        if (permission === "granted") {
+            document.getElementById("ob-notif-state").innerHTML = `<div style="color:#4ecca3;font-size:15px;font-weight:600;padding:12px 0">✓ Notifications enabled</div>`;
+            document.getElementById("ob-done-notif").textContent = "✓ Notifications enabled";
+            try {
+                const reg = await navigator.serviceWorker.ready;
+                const cfg = await getClientConfig();
+                if (cfg.firebase?.apiKey) {
+                    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+                    const { getMessaging, getToken } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js");
+                    const fbApp = initializeApp(cfg.firebase);
+                    const messaging = getMessaging(fbApp);
+                    const token = await getToken(messaging, { vapidKey: cfg.vapidKey, serviceWorkerRegistration: reg });
+                    if (token) await api("/users/device-token", { method: "POST", body: JSON.stringify({ token }) });
+                } else if (cfg.vapidKey) {
+                    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: cfg.vapidKey });
+                    await api("/users/web-push-subscribe", { method: "POST", body: JSON.stringify({ subscription: sub.toJSON() }) });
+                }
+            } catch {}
+            setTimeout(() => obNext(), 800);
+        } else {
+            document.getElementById("ob-notif-state").innerHTML = `<div style="color:#e94560;font-size:14px;padding:8px 0">Notifications blocked. You can enable them in your browser settings later.</div><button class="ob-next-btn" style="margin-top:12px" onclick="obSkip()">Continue anyway →</button>`;
+            document.getElementById("ob-done-notif").textContent = "— Enable notifications in browser settings";
+        }
+    } catch (e) {
+        btn.disabled = false;
+        showToast("Could not request notification permission", "error");
+    }
+}
+
+function obFinish() {
+    localStorage.setItem("onboarding_done", "1");
+    document.getElementById("onboarding-overlay").style.display = "none";
+    loadContacts();
+}
+
+// ─── End Onboarding ───────────────────────────────────────────────────────────
 
 (async function init() {
     if (getToken()) {

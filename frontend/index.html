@@ -44,6 +44,126 @@
             </div>
         </div>
 
+        <!-- Onboarding overlay -->
+        <div id="onboarding-overlay" style="display:none">
+            <div id="onboarding-inner">
+                <div id="onboarding-progress">
+                    <div id="onboarding-progress-bar"></div>
+                </div>
+
+                <!-- Step 1: Why it matters -->
+                <div class="onboarding-step active" data-step="1">
+                    <div class="onboarding-logo">Still Here</div>
+                    <h2>36 million Americans live alone.</h2>
+                    <p class="onboarding-sub">Most of them have no plan for what happens if something goes wrong.</p>
+                    <div class="onboarding-stats">
+                        <div class="ob-stat"><span class="ob-stat-num">29%</span><span class="ob-stat-label">of US households are single-person — a record high</span></div>
+                        <div class="ob-stat"><span class="ob-stat-num">79%</span><span class="ob-stat-label">of Gen Z report feeling lonely</span></div>
+                        <div class="ob-stat"><span class="ob-stat-num">10%</span><span class="ob-stat-label">of people who die alone aren't found for over a month</span></div>
+                    </div>
+                    <div class="onboarding-callout">
+                        <strong>Gen Z doesn't know their neighbors.</strong> A 2023 Pew survey found only 1 in 4 young adults know even one neighbor by name. The informal safety net that used to exist — someone noticing your lights haven't been on — is gone.
+                    </div>
+                    <div class="onboarding-competitors">
+                        <div class="ob-comp-label">Every other app assumes you can press a button when something goes wrong.</div>
+                        <div class="ob-comp-row">
+                            <span class="ob-comp-pill ob-gap">Life360</span>
+                            <span class="ob-comp-pill ob-gap">Noonlight</span>
+                            <span class="ob-comp-pill ob-gap">bSafe</span>
+                            <span class="ob-comp-pill ob-gap">Apple Check In</span>
+                        </div>
+                        <div class="ob-comp-diff">Still Here is built for the scenario where you can't.</div>
+                    </div>
+                    <div class="onboarding-why-list">
+                        <div class="ob-why-item">✓ No live tracking. No surveillance. Just a daily tap.</div>
+                        <div class="ob-why-item">✓ Escalates to people you trust — not 911.</div>
+                        <div class="ob-why-item">✓ $5 once. Your safety net doesn't expire.</div>
+                    </div>
+                    <button class="ob-next-btn" onclick="obNext()">Let's set you up →</button>
+                    <button class="ob-skip-btn" onclick="obSkip()">Skip setup</button>
+                </div>
+
+                <!-- Step 2: Check-in time -->
+                <div class="onboarding-step" data-step="2">
+                    <div class="ob-step-num">Step 1 of 3</div>
+                    <h2>When should we check in?</h2>
+                    <p class="onboarding-sub">Pick a time you'll reliably be awake. 9 AM is a safe default. You can change this anytime.</p>
+                    <div class="ob-field-group">
+                        <label>Check-in time (your local time)</label>
+                        <input type="time" id="ob-checkin-time" value="09:00">
+                    </div>
+                    <div class="ob-field-group">
+                        <label>Grace period — how long before we worry</label>
+                        <select id="ob-grace">
+                            <option value="60">1 hour</option>
+                            <option value="120" selected>2 hours</option>
+                            <option value="240">4 hours</option>
+                            <option value="480">8 hours</option>
+                            <option value="1440">24 hours</option>
+                        </select>
+                    </div>
+                    <div class="ob-nav">
+                        <button class="ob-back-btn" onclick="obBack()">← Back</button>
+                        <button class="ob-next-btn" onclick="obSaveTime()">Save & continue →</button>
+                    </div>
+                    <button class="ob-skip-btn" onclick="obSkip()">Skip setup</button>
+                </div>
+
+                <!-- Step 3: First contact -->
+                <div class="onboarding-step" data-step="3">
+                    <div class="ob-step-num">Step 2 of 3</div>
+                    <h2>Who watches out for you?</h2>
+                    <p class="onboarding-sub">Add someone who should be notified if you miss a check-in. They won't hear from us unless something's wrong.</p>
+                    <div class="ob-field-group">
+                        <label>Their name</label>
+                        <input type="text" id="ob-contact-name" placeholder="Alex" autocomplete="off">
+                    </div>
+                    <div class="ob-field-group">
+                        <label>Phone number</label>
+                        <input type="tel" id="ob-contact-phone" placeholder="+1 555 000 0000" autocomplete="off">
+                    </div>
+                    <div class="ob-field-group">
+                        <label>Email <span style="opacity:0.5;font-size:12px">(optional)</span></label>
+                        <input type="email" id="ob-contact-email" placeholder="alex@example.com" autocomplete="off">
+                    </div>
+                    <p id="ob-contact-error" class="error-text"></p>
+                    <div class="ob-nav">
+                        <button class="ob-back-btn" onclick="obBack()">← Back</button>
+                        <button class="ob-next-btn" onclick="obSaveContact()">Add contact →</button>
+                    </div>
+                    <button class="ob-skip-btn" onclick="obSkipContact()">Add later</button>
+                </div>
+
+                <!-- Step 4: Notifications -->
+                <div class="onboarding-step" data-step="4">
+                    <div class="ob-step-num">Step 3 of 3</div>
+                    <h2>Enable notifications</h2>
+                    <p class="onboarding-sub">Still Here needs to reach you. Push notifications are how we send your daily check-in tap.</p>
+                    <div id="ob-notif-state">
+                        <button class="ob-next-btn" id="ob-notif-btn" onclick="obRequestNotif()">Enable notifications</button>
+                        <p class="ob-notif-note">If your browser asks for permission, tap Allow.</p>
+                    </div>
+                    <div class="ob-nav" style="margin-top:16px">
+                        <button class="ob-back-btn" onclick="obBack()">← Back</button>
+                    </div>
+                    <button class="ob-skip-btn" onclick="obSkip()">Skip for now</button>
+                </div>
+
+                <!-- Done -->
+                <div class="onboarding-step" data-step="5">
+                    <div class="ob-done-icon">🛡️</div>
+                    <h2>You're protected.</h2>
+                    <p class="onboarding-sub">Someone always knows. Check-ins start tomorrow at your set time. You can change everything in Settings.</p>
+                    <div class="onboarding-why-list">
+                        <div class="ob-why-item">✓ Daily check-in scheduled</div>
+                        <div class="ob-why-item" id="ob-done-contact"></div>
+                        <div class="ob-why-item" id="ob-done-notif"></div>
+                    </div>
+                    <button class="ob-next-btn" onclick="obFinish()">Open the app →</button>
+                </div>
+            </div>
+        </div>
+
         <div id="main-screen" style="display:none">
             <div id="tab-content">
                 <div id="tab-home" class="tab-panel active">
