@@ -85,6 +85,46 @@ def _send_smtp(to_email: str, subject: str, html: str) -> bool:
         return False
 
 
+def _generate_verification_token(user_id: str) -> str:
+    payload = {
+        "sub": user_id,
+        "type": "verify",
+        "exp": datetime.now(timezone.utc) + timedelta(hours=48),
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
+
+
+def decode_verification_token(token: str):
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
+        if payload.get("type") != "verify":
+            return None
+        return payload
+    except Exception:
+        return None
+
+
+def send_verification_email(to_email: str, user_name: str, user_id: str):
+    token = _generate_verification_token(user_id)
+    verify_url = f"{settings.base_url}/users/verify-email?token={token}"
+    return _send_email(to_email, "Verify your Still Here email", f"""
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;background:#080808;color:#F5F5F5;border-radius:12px;overflow:hidden">
+  <div style="background:#111;border-bottom:1px solid rgba(255,255,255,0.08);padding:28px 32px;text-align:center">
+    <div style="font-size:22px;font-weight:800;color:#FF3B3B;letter-spacing:-0.5px">Still Here</div>
+  </div>
+  <div style="padding:36px 32px">
+    <h1 style="font-size:22px;font-weight:700;color:#F5F5F5;margin:0 0 12px">Verify your email</h1>
+    <p style="font-size:14px;color:rgba(255,255,255,0.55);line-height:1.6;margin:0 0 28px">Hey {user_name}, tap below to verify your email address. This link expires in 48 hours.</p>
+    <a href="{verify_url}" style="display:block;text-align:center;padding:14px 28px;background:#FF3B3B;color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;margin-bottom:24px">Verify Email →</a>
+    <p style="font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6">If you didn't create a Still Here account, ignore this email.</p>
+  </div>
+  <div style="padding:20px 32px;text-align:center;border-top:1px solid rgba(255,255,255,0.06)">
+    <div style="font-size:11px;color:rgba(255,255,255,0.2);letter-spacing:0.08em">STILL HERE · SOMEONE ALWAYS KNOWS</div>
+  </div>
+</div>
+""")
+
+
 def _generate_checkin_token(user_id: str) -> str:
     payload = {
         "sub": user_id,

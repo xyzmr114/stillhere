@@ -5,10 +5,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
+from limiter import limiter
 from routes import users, checkin, contacts, confirm, demo, mutual, groups, portal, family, webhooks, api_keys, stripe_payments, contact, netcore
 
 app = FastAPI(title="Still Here", version="1.0.0")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -151,8 +156,6 @@ def serve_client_config():
             "measurementId": settings.firebase_measurement_id,
         },
         "vapidKey": settings.firebase_vapid_key,
-        "auth0Domain": settings.auth0_domain,
-        "auth0ClientId": settings.auth0_client_id,
     }
 
 

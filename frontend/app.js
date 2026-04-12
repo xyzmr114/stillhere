@@ -30,71 +30,13 @@ function esc(s) {
     return d.innerHTML;
 }
 
-let _auth0Client = null;
 let _clientConfig = null;
-
-const AUTH0_CALLBACK_URL = window.location.origin + "/app";
 
 async function getClientConfig() {
     if (_clientConfig) return _clientConfig;
     const res = await fetch("/api/config");
     _clientConfig = await res.json();
     return _clientConfig;
-}
-
-async function getAuth0Client() {
-    if (_auth0Client) return _auth0Client;
-    if (!window.auth0) return null;
-    const cfg = await getClientConfig();
-    _auth0Client = await auth0.createAuth0Client({
-        domain: cfg.auth0Domain,
-        clientId: cfg.auth0ClientId,
-        cacheLocation: "localstorage",
-        authorizationParams: {
-            redirect_uri: AUTH0_CALLBACK_URL,
-        },
-    });
-    return _auth0Client;
-}
-
-async function handleAuth0Callback() {
-    const query = window.location.search;
-    if (!query || (!query.includes("code=") && !query.includes("error="))) return;
-    // Clear the code from URL immediately to prevent double-exchange on refresh
-    window.history.replaceState({}, document.title, "/app");
-    const client = await getAuth0Client();
-    if (!client) return;
-    try {
-        await client.handleRedirectCallback();
-    } catch (e) {
-        console.warn("Auth0 callback error:", e);
-    }
-}
-
-async function doAuth0Login() {
-    try {
-        const client = await getAuth0Client();
-        if (!client) { showToast("Auth0 not available", "error"); return; }
-        const isAuth = await client.isAuthenticated();
-        if (isAuth) {
-            const claims = await client.getIdTokenClaims();
-            if (!claims || !claims.__raw) {
-                await client.loginWithRedirect();
-                return;
-            }
-            const name = claims.name || claims.nickname || "";
-            const data = await api("/users/auth0-login", {
-                method: "POST",
-                body: JSON.stringify({ token: claims.__raw, name }),
-            });
-            setToken(data.token);
-            await loadMain();
-        } else {
-            await client.loginWithRedirect();
-        }
-    } catch (e) {
-        showToast(e.message || "Auth0 login failed", "error");
-    }
 }
 
 async function showPaywall() {
@@ -224,9 +166,6 @@ document.getElementById("register-btn").addEventListener("click", async () => {
         document.getElementById("register-error").textContent = e.message;
     }
 });
-
-document.getElementById("auth0-login-btn").addEventListener("click", doAuth0Login);
-document.getElementById("auth0-register-btn").addEventListener("click", doAuth0Login);
 
 document.querySelectorAll(".nav-item").forEach((btn) => {
     btn.addEventListener("click", () => switchTab(btn.dataset.tab));
@@ -1291,7 +1230,6 @@ document.getElementById("api-key-modal-close-btn")?.addEventListener("click", ()
 });
 
 (async function init() {
-    await handleAuth0Callback();
     if (getToken()) {
         try {
             await loadMain();
@@ -1300,16 +1238,6 @@ document.getElementById("api-key-modal-close-btn")?.addEventListener("click", ()
             showScreen("auth");
         }
     } else {
-        const client = await getAuth0Client();
-        if (client) {
-            try {
-                const isAuth = await client.isAuthenticated();
-                if (isAuth) {
-                    await doAuth0Login();
-                    return;
-                }
-            } catch {}
-        }
         showScreen("auth");
     }
 })();

@@ -11,7 +11,6 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
-    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
 </head>
 <body>
     <div id="app">
@@ -28,8 +27,6 @@
                 <input type="email" id="login-email" placeholder="Email" autocomplete="email">
                 <input type="password" id="login-password" placeholder="Password" autocomplete="current-password">
                 <button id="login-btn">Log In</button>
-                <div class="auth-divider"><span>or</span></div>
-                <button id="auth0-login-btn" class="btn-auth0">Continue with Auth0</button>
                 <p class="switch-link">Don't have an account? <a href="#" id="show-register">Sign up</a></p>
                 <p class="switch-link" style="margin-top:6px"><a href="/reset-password" style="opacity:0.5;font-size:13px">Forgot password?</a></p>
             </div>
@@ -43,8 +40,6 @@
                 <input type="tel" id="reg-phone" placeholder="Phone (+1...)" autocomplete="tel">
                 <input type="password" id="reg-password" placeholder="Password" autocomplete="new-password">
                 <button id="register-btn">Sign Up</button>
-                <div class="auth-divider"><span>or</span></div>
-                <button id="auth0-register-btn" class="btn-auth0">Sign up with Auth0</button>
                 <p class="switch-link">Already have an account? <a href="#" id="show-login">Log in</a></p>
             </div>
         </div>

@@ -1036,3 +1036,26 @@ def touch_api_key(db, key_id: str):
         {"kid": key_id},
     )
     db.commit()
+
+
+def delete_user_account(db, user_id: str):
+    uid = user_id
+    db.execute(text("DELETE FROM contact_portal_tokens WHERE contact_id IN (SELECT id FROM emergency_contacts WHERE user_id::text = :uid)"), {"uid": uid})
+    db.execute(text("DELETE FROM contact_confirmations WHERE escalation_event_id IN (SELECT id FROM escalation_events WHERE user_id::text = :uid)"), {"uid": uid})
+    db.execute(text("DELETE FROM escalation_events WHERE user_id::text = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM emergency_contacts WHERE user_id::text = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM checkins WHERE user_id::text = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM audit_log WHERE user_id::text = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM group_pings WHERE target_user_id::text = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM group_members WHERE user_id::text = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM group_members WHERE group_id IN (SELECT id FROM groups WHERE created_by::text = :uid)"), {"uid": uid})
+    db.execute(text("DELETE FROM groups WHERE created_by::text = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM mutual_pairs WHERE user_a::text = :uid OR user_b::text = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM family_invites WHERE family_id IN (SELECT id FROM families WHERE admin_user_id::text = :uid)"), {"uid": uid})
+    db.execute(text("DELETE FROM family_members WHERE family_id IN (SELECT id FROM families WHERE admin_user_id::text = :uid)"), {"uid": uid})
+    db.execute(text("DELETE FROM families WHERE admin_user_id::text = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM family_members WHERE user_id::text = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM sensor_webhooks WHERE user_id::text = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM api_keys WHERE user_id::text = :uid"), {"uid": uid})
+    db.execute(text("DELETE FROM users WHERE id::text = :uid"), {"uid": uid})
+    db.commit()

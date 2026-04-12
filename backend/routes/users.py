@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from jose import JWTError, jwt
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import text
@@ -10,6 +10,7 @@ from auth import create_jwt, hash_password, verify_password
 from config import settings
 from dependencies import get_current_user
 from db import get_session, get_user_by_email
+from limiter import limiter
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -24,11 +25,6 @@ class RegisterIn(BaseModel):
 class LoginIn(BaseModel):
     email: EmailStr
     password: str
-
-
-class Auth0LoginIn(BaseModel):
-    token: str
-    name: str = None
 
 
 class DeviceTokenIn(BaseModel):
@@ -80,7 +76,8 @@ class UserPatch(BaseModel):
 
 
 @router.post("/register")
-def register(body: RegisterIn, db=Depends(get_session)):
+@limiter.limit("5/minute")
+def register(request: Request, body: RegisterIn, db=Depends(get_session)):
     existing = get_user_by_email(db, body.email)
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -93,49 +90,24 @@ def register(body: RegisterIn, db=Depends(get_session)):
     ).first()
     db.commit()
     token = create_jwt(str(result[0]))
+    uid = str(result[0])
     try:
-        from services.email_svc import send_welcome_email
+        from services.email_svc import send_welcome_email, send_verification_email
         send_welcome_email(body.email, body.name)
+        send_verification_email(body.email, body.name, uid)
     except Exception:
         pass
-    return {"token": token, "user_id": str(result[0])}
+    return {"token": token, "user_id": uid}
 
 
 @router.post("/login")
-def login(body: LoginIn, db=Depends(get_session)):
+@limiter.limit("10/minute")
+def login(request: Request, body: LoginIn, db=Depends(get_session)):
     user = get_user_by_email(db, body.email)
     if not user or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     token = create_jwt(str(user["id"]))
     return {"token": token, "user_id": str(user["id"])}
-
-
-@router.post("/auth0-login")
-def auth0_login(body: Auth0LoginIn, db=Depends(get_session)):
-    from auth0 import verify_auth0_token
-    payload = verify_auth0_token(body.token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="Invalid Auth0 token")
-    email = payload.get("email")
-    if not email:
-        raise HTTPException(status_code=400, detail="No email in Auth0 profile")
-    user = get_user_by_email(db, email)
-    if not user:
-        name = body.name or payload.get("name") or payload.get("nickname") or email.split("@")[0]
-        import bcrypt
-        pw_hash = bcrypt.hashpw(b"auth0_" + email.encode(), bcrypt.gensalt()).decode()
-        result = db.execute(
-            text(
-                "INSERT INTO users (email, name, password_hash) VALUES (:email, :name, :pw) RETURNING id"
-            ),
-            {"email": email, "name": name, "pw": pw_hash},
-        ).first()
-        db.commit()
-        uid = str(result[0])
-    else:
-        uid = str(user["id"])
-    token = create_jwt(uid)
-    return {"token": token, "user_id": uid}
 
 
 @router.post("/device-token")
@@ -216,8 +188,42 @@ def update_me(body: UserPatch, user=Depends(get_current_user), db=Depends(get_se
     return updated
 
 
+@router.get("/verify-email")
+def verify_email(token: str, db=Depends(get_session)):
+    from services.email_svc import decode_verification_token
+    payload = decode_verification_token(token)
+    if not payload:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification link")
+    uid = payload.get("sub")
+    db.execute(text("UPDATE users SET email_verified = TRUE WHERE id::text = :uid"), {"uid": uid})
+    db.commit()
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/app?verified=1")
+
+
+@router.post("/resend-verification")
+@limiter.limit("3/minute")
+def resend_verification(request: Request, user=Depends(get_current_user)):
+    if user.get("email_verified"):
+        return {"ok": True, "already_verified": True}
+    try:
+        from services.email_svc import send_verification_email
+        send_verification_email(user["email"], user["name"], str(user["id"]))
+    except Exception:
+        pass
+    return {"ok": True}
+
+
+@router.delete("/me")
+def delete_account(user=Depends(get_current_user), db=Depends(get_session)):
+    from db import delete_user_account
+    delete_user_account(db, str(user["id"]))
+    return {"ok": True}
+
+
 @router.post("/forgot-password")
-def forgot_password(body: ForgotPasswordIn, db=Depends(get_session)):
+@limiter.limit("3/minute")
+def forgot_password(request: Request, body: ForgotPasswordIn, db=Depends(get_session)):
     user = get_user_by_email(db, body.email)
     if user:
         token = _generate_reset_token(str(user["id"]))

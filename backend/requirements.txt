@@ -17,3 +17,4 @@ stripe
 pywebpush
 py-vapid
 aiosmtplib
+slowapi
