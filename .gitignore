@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.log
+
+# Node (if any tooling)
+node_modules/
+
+# Secrets
+*.pem
+*.key
+credentials.json
+firebase-*.json
+
+# Self-improvement learnings (per-developer)
+.learnings/
+
+# Agent/editor config — never push
+AGENTS.md
+CLAUDE.md
+.claude/
+.opencodeignore
+
+# Task output files (scratch work)
+TASK*_OUTPUT.md
+
+# Docs/plans (internal, not for public repo)
+docs/
+
+# Firebase service account keys
+firebase/
+
+# Stray root duplicates
+/consent.html
+/contact.html
+/sitemap.html
+/og_image.png

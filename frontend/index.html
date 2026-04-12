@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f0f1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
+    <title>Still Here</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
+    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
+</head>
+<body>
+    <div id="app">
+        <header id="app-header">
+            <h1>Still Here</h1>
+            <button id="header-back-btn" class="icon-btn" style="display:none">←</button>
+        </header>
+
+        <div id="auth-screen">
+            <div id="login-form">
+                <h2>Welcome Back</h2>
+                <p class="subtitle">Your safety matters</p>
+                <p id="login-error" class="error-text"></p>
+                <input type="email" id="login-email" placeholder="Email" autocomplete="email">
+                <input type="password" id="login-password" placeholder="Password" autocomplete="current-password">
+                <button id="login-btn">Log In</button>
+                <div class="auth-divider"><span>or</span></div>
+                <button id="auth0-login-btn" class="btn-auth0">Continue with Auth0</button>
+                <p class="switch-link">Don't have an account? <a href="#" id="show-register">Sign up</a></p>
+                <p class="switch-link" style="margin-top:6px"><a href="/reset-password" style="opacity:0.5;font-size:13px">Forgot password?</a></p>
+            </div>
+
+            <div id="register-form" style="display:none">
+                <h2>Create Account</h2>
+                <p class="subtitle">Stay connected, stay safe</p>
+                <p id="register-error" class="error-text"></p>
+                <input type="text" id="reg-name" placeholder="Full Name" autocomplete="name">
+                <input type="email" id="reg-email" placeholder="Email" autocomplete="email">
+                <input type="tel" id="reg-phone" placeholder="Phone (+1...)" autocomplete="tel">
+                <input type="password" id="reg-password" placeholder="Password" autocomplete="new-password">
+                <button id="register-btn">Sign Up</button>
+                <div class="auth-divider"><span>or</span></div>
+                <button id="auth0-register-btn" class="btn-auth0">Sign up with Auth0</button>
+                <p class="switch-link">Already have an account? <a href="#" id="show-login">Log in</a></p>
+            </div>
+        </div>
+
+        <div id="main-screen" style="display:none">
+            <div id="tab-content">
+                <div id="tab-home" class="tab-panel active">
+                    <div id="vacation-banner" class="vacation-banner" style="display:none">
+                        Vacation Mode Active — check-ins paused
+                    </div>
+                    <div id="status-card">
+                        <div id="status-icon">🛡️</div>
+                        <p id="status-text">Loading...</p>
+                    </div>
+                    <div class="checkin-btn-wrap">
+                        <button id="checkin-btn">I'm Still Here</button>
+                    </div>
+                    <div id="daily-prompt" style="margin:12px 0;padding:12px;background:#1a1a2e;border-radius:8px;font-style:italic;opacity:0.8;font-size:14px;display:none"></div>
+                    <p id="checkin-result"></p>
+                    <div id="note-input-wrap" style="display:none;margin:16px 0">
+                        <p style="font-size:14px;opacity:0.7;margin-bottom:8px">How's your day? (optional)</p>
+                        <div style="display:flex;gap:8px">
+                            <input type="text" id="checkin-note" placeholder="Rough day but here." maxlength="280" style="flex:1">
+                            <button id="save-note-btn" class="btn btn-outline" style="white-space:nowrap">Save</button>
+                        </div>
+                    </div>
+                    <div id="user-confirm-wrap" style="display:none">
+                        <p class="confirm-hint">Your contacts believe you're safe. Please confirm.</p>
+                        <button id="user-confirm-btn" class="btn-confirm-user">I'm Safe ✓</button>
+                        <button id="cancel-escalation-btn" class="btn btn-danger" style="display:none;margin-top:8px;width:100%">Cancel Escalation (False Alarm)</button>
+                    </div>
+                    <div id="quick-stats">
+                        <div class="stat-item">
+                            <span id="stat-streak" class="stat-value">0</span>
+                            <span class="stat-label">Day Streak</span>
+                        </div>
+                        <div class="stat-item">
+                            <span id="stat-contacts" class="stat-value">0</span>
+                            <span class="stat-label">Contacts</span>
+                        </div>
+                        <div class="stat-item">
+                            <span id="stat-next" class="stat-value">--:--</span>
+                            <span class="stat-label">Next Check-in</span>
+                        </div>
+                    </div>
+                    <div id="buddy-section" style="display:none;margin-top:20px">
+                        <h3 class="section-title">My Buddy</h3>
+                        <div id="buddy-list"></div>
+                    </div>
+                </div>
+
+                <div id="tab-contacts" class="tab-panel">
+                    <div id="circle-header" style="margin-bottom:16px"></div>
+                    <div id="groups-section" style="margin-bottom:24px">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                            <h3 class="section-title" style="margin:0;border:none;padding:0">Groups</h3>
+                            <button id="create-group-btn" class="create-group-btn">+ Group</button>
+                        </div>
+                        <div id="groups-list"></div>
+                    </div>
+                    <h3 class="section-title">Emergency Contacts</h3>
+                    <div id="contacts-list"></div>
+                    <button id="add-contact-toggle" class="fab">+</button>
+                    <div id="add-contact-modal" class="modal" style="display:none">
+                        <div class="modal-content">
+                            <h3>Add Emergency Contact</h3>
+                            <p id="contacts-error" class="error-text"></p>
+                            <input type="text" id="contact-name" placeholder="Contact Name">
+                            <input type="tel" id="contact-phone" placeholder="Phone (+1...)">
+                            <input type="email" id="contact-email" placeholder="Email (optional)">
+                            <button id="add-contact-btn">Add Contact</button>
+                            <button id="cancel-contact-btn" class="btn-secondary">Cancel</button>
+                        </div>
+                    </div>
+                    <div id="create-group-modal" class="modal" style="display:none">
+                        <div class="modal-content">
+                            <h3>Create Group</h3>
+                            <p id="group-error" class="error-text"></p>
+                            <input type="text" id="group-name" placeholder="Group name" maxlength="50">
+                            <button id="save-group-btn">Create</button>
+                            <button id="cancel-group-btn" class="btn-secondary">Cancel</button>
+                        </div>
+                    </div>
+                    <div id="group-detail-modal" class="modal" style="display:none">
+                        <div class="modal-content">
+                            <h3 id="group-detail-title">Group</h3>
+                            <div id="group-members-list" class="group-member-list"></div>
+                            <div style="display:flex;gap:8px;margin-top:16px">
+                                <input type="email" id="invite-email" placeholder="Email to invite" style="flex:1">
+                                <button id="invite-member-btn" style="width:auto;padding:12px 16px">Invite</button>
+                            </div>
+                            <p id="group-detail-error" class="error-text"></p>
+                            <button id="leave-group-btn" class="btn-secondary" style="margin-top:12px">Leave Group</button>
+                            <button id="close-group-detail-btn" class="btn-secondary" style="margin-top:8px">Close</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-activity" class="tab-panel">
+                    <div id="streak-card">
+                        <span id="streak-number" class="streak-value">0</span>
+                        <span class="streak-label">Day Streak</span>
+                        <div id="streak-bar"></div>
+                    </div>
+                    <div id="report-card" style="display:none;margin-bottom:16px;padding:16px;background:#1a1a2e;border-radius:12px">
+                        <h3 style="margin:0 0 8px;font-size:18px;color:#4ecca3" id="report-title"></h3>
+                        <div id="report-stats" style="display:flex;gap:12px;flex-wrap:wrap"></div>
+                        <div id="report-milestones" style="margin-top:12px"></div>
+                    </div>
+                    <button id="show-report-btn" class="btn btn-outline" style="width:100%;margin-bottom:12px;display:none">View Your Year</button>
+                    <h3 class="section-title">Recent Activity</h3>
+                    <div style="margin-bottom:12px;display:flex;gap:8px">
+                        <button class="tab-toggle active" data-filter="all" onclick="filterAudit('all')">All</button>
+                        <button class="tab-toggle" data-filter="checkin" onclick="filterAudit('checkin')">Check-ins</button>
+                        <button class="tab-toggle" data-filter="escalation" onclick="filterAudit('escalation')">Alerts</button>
+                    </div>
+                    <div id="activity-list"></div>
+                </div>
+
+                <div id="tab-settings" class="tab-panel">
+                    <div class="settings-card">
+                        <h3 class="section-title">Profile</h3>
+                        <div id="profile-info">
+                            <p id="profile-name" class="profile-field"></p>
+                            <p id="profile-email" class="profile-field"></p>
+                        </div>
+                    </div>
+                    <div class="settings-card">
+                        <h3 class="section-title">Snooze</h3>
+                        <p id="snooze-status" class="snooze-status-text">Check-ins are active</p>
+                        <div class="snooze-options">
+                            <button class="snooze-btn" data-hours="24">24h</button>
+                            <button class="snooze-btn" data-hours="48">48h</button>
+                            <button class="snooze-btn" data-hours="72">72h</button>
+                            <button class="snooze-btn snooze-off-btn" data-hours="0">Resume</button>
+                        </div>
+                    </div>
+                    <div class="settings-card">
+                        <h3 class="section-title">Check-in Schedule</h3>
+                        <p id="settings-error" class="error-text"></p>
+                        <p id="settings-saved" class="success-text"></p>
+                        <label>Check-in Time (UTC)
+                            <input type="time" id="setting-checkin-time" value="09:00">
+                        </label>
+                        <label>Grace Period (minutes)
+                            <input type="number" id="setting-grace" value="120" min="1">
+                        </label>
+                        <label>Max Retries
+                            <input type="number" id="setting-retries" value="3" min="0">
+                        </label>
+                        <label>Retry Interval (hours)
+                            <input type="number" id="setting-interval" value="8" min="1">
+                        </label>
+                        <label>Contact Grace Period (hours)
+                            <input type="number" id="setting-contact-grace" value="48" min="1">
+                        </label>
+                        <div class="setting-group">
+                            <label for="setting-confirm-by">Confirm-by window (minutes)</label>
+                            <input type="number" id="setting-confirm-by" min="0" max="720" value="0">
+                            <small style="opacity:0.6;display:block;margin-top:4px">0 = no window. 240 = escalate only after 4 extra hours.</small>
+                        </div>
+                        <div class="setting-group">
+                            <label for="setting-streak-reminder">Streak reminder (hours before deadline)</label>
+                            <input type="number" id="setting-streak-reminder" min="0" max="24" value="2">
+                            <small style="opacity:0.6;display:block;margin-top:4px">0 = disabled. 2 = reminder 2 hours before escalation window closes.</small>
+                        </div>
+                        <button id="save-settings-btn">Save Settings</button>
+                        <button id="dry-run-btn" class="btn btn-outline" style="width:100%;margin-top:12px">Test My Setup (Dry Run)</button>
+                    </div>
+                    <div class="settings-card">
+                        <h3 class="section-title">Vacation Mode</h3>
+                        <p id="vacation-error" class="error-text"></p>
+                        <label>Vacation Start
+                            <input type="datetime-local" id="vacation-start">
+                        </label>
+                        <label>Vacation End
+                            <input type="datetime-local" id="vacation-end">
+                        </label>
+                        <div class="vacation-btn-row">
+                            <button id="save-vacation-btn">Save Vacation</button>
+                            <button id="clear-vacation-btn" class="btn-secondary">Clear</button>
+                        </div>
+                    </div>
+                    <div class="settings-card" id="family-section">
+                        <h3 class="section-title">Family</h3>
+                        <div id="family-info">
+                            <p id="family-name" class="profile-field"></p>
+                        </div>
+                        <div id="family-create" style="display:none">
+                            <input type="text" id="family-name-input" placeholder="Family name" maxlength="100">
+                            <button id="create-family-btn">Create Family</button>
+                        </div>
+                        <div id="family-members" style="display:none">
+                            <div id="family-member-list"></div>
+                            <div class="family-invite-row">
+                                <input type="email" id="family-invite-email" placeholder="Email to invite">
+                                <button id="family-invite-btn">Invite</button>
+                            </div>
+                            <div id="family-invite-link" class="family-invite-link" style="display:none"></div>
+                        </div>
+                        <div id="family-join" style="display:none">
+                            <p id="family-join-name"></p>
+                            <button id="family-join-btn">Join Family</button>
+                        </div>
+                        <div id="family-actions" style="display:none">
+                            <button id="leave-family-btn" class="btn-secondary">Leave Family</button>
+                            <button id="disband-family-btn" class="btn-danger" style="display:none">Disband Family</button>
+                        </div>
+                    </div>
+                    <div class="settings-card" id="sensors-section">
+                        <h3 class="section-title">Sensors</h3>
+                        <div id="sensor-list"></div>
+                        <button id="add-sensor-btn" class="btn-secondary">Add Sensor</button>
+                        <div id="sensor-form" style="display:none">
+                            <select id="sensor-type-select">
+                                <option value="motion">Motion</option>
+                                <option value="door">Door</option>
+                                <option value="health">Health</option>
+                                <option value="other">Other</option>
+                            </select>
+                            <input type="text" id="sensor-id-input" placeholder="Sensor ID (e.g. ha_living_room)">
+                            <button id="sensor-submit-btn">Register</button>
+                            <button id="sensor-cancel-btn" class="btn-secondary">Cancel</button>
+                        </div>
+                    </div>
+                    <div class="settings-card" id="api-keys-section">
+                        <h3 class="section-title">API Keys</h3>
+                        <p class="settings-hint">Generate keys for external services to check in on your behalf.</p>
+                        <div id="api-key-list"></div>
+                        <button id="generate-api-key-btn" class="btn-secondary">Generate New Key</button>
+                    </div>
+                    <button id="logout-btn" class="btn-danger">Log Out</button>
+                </div>
+            </div>
+
+            <nav id="bottom-nav">
+                <button class="nav-item active" data-tab="home">
+                    <span class="nav-icon">🏠</span>
+                    <span class="nav-label">Home</span>
+                </button>
+                <button class="nav-item" data-tab="contacts">
+                    <span class="nav-icon">👥</span>
+                    <span class="nav-label">Contacts</span>
+                </button>
+                <button class="nav-item" data-tab="activity">
+                    <span class="nav-icon">📋</span>
+                    <span class="nav-label">Activity</span>
+                </button>
+                <button class="nav-item" data-tab="settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-label">Settings</span>
+                </button>
+            </nav>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <div id="api-key-modal" class="modal" style="display:none">
+        <div class="modal-content api-key-modal">
+            <h3>Your API Key</h3>
+            <p class="api-key-warning">Copy this key now. You won't be able to see it again.</p>
+            <div class="api-key-display">
+                <code id="api-key-value"></code>
+                <button id="api-key-copy-btn" class="btn-secondary">Copy</button>
+            </div>
+            <button id="api-key-modal-close-btn">Done</button>
+        </div>
+    </div>
+
+    <div id="notif-prompt" class="modal" style="display:none">
+        <div class="modal-content">
+            <div class="notif-prompt-icon">🔔</div>
+            <h3>Stay Safe with Notifications</h3>
+            <p class="notif-prompt-text">Allow notifications so we can remind you to check in and alert your contacts if needed.</p>
+            <button id="notif-allow-btn">Allow Notifications</button>
+            <button id="notif-skip-btn" class="btn-secondary">Maybe Later</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
