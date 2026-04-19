@@ -97,7 +97,7 @@
 
                 <!-- Step 2: Check-in time -->
                 <div class="onboarding-step" data-step="2">
-                    <div class="ob-step-num">Step 1 of 3</div>
+                    <div class="ob-step-num">Step 1 of 4</div>
                     <h2>When should we check in?</h2>
                     <p class="onboarding-sub">Pick a time you'll reliably be awake. 9 AM is a safe default. You can change this anytime.</p>
                     <div class="ob-field-group">
@@ -123,7 +123,7 @@
 
                 <!-- Step 3: First contact -->
                 <div class="onboarding-step" data-step="3">
-                    <div class="ob-step-num">Step 2 of 3</div>
+                    <div class="ob-step-num">Step 2 of 4</div>
                     <h2>Who watches out for you?</h2>
                     <p class="onboarding-sub">Add someone who should be notified if you miss a check-in. They won't hear from us unless something's wrong.</p>
                     <div class="ob-field-group">
@@ -146,9 +146,56 @@
                     <button class="ob-skip-btn" onclick="obSkipContact()">Add later</button>
                 </div>
 
-                <!-- Step 4: Notifications -->
+                <!-- Step 4: Safety address -->
                 <div class="onboarding-step" data-step="4">
-                    <div class="ob-step-num">Step 3 of 3</div>
+                    <div class="ob-step-num">Step 3 of 4</div>
+                    <h2>Where do you live?</h2>
+                    <p class="onboarding-sub">If we ever need to request a welfare check, we need your address and local non-emergency number. This is never shared with anyone else.</p>
+                    <div class="ob-field-group">
+                        <label>Street address</label>
+                        <input type="text" id="ob-address" placeholder="123 Main St, Apt 4" autocomplete="street-address">
+                    </div>
+                    <div class="ob-field-group">
+                        <label>City</label>
+                        <input type="text" id="ob-city" placeholder="Austin" autocomplete="address-level2">
+                    </div>
+                    <div style="display:flex;gap:12px">
+                        <div class="ob-field-group" style="flex:1">
+                            <label>State</label>
+                            <input type="text" id="ob-state" placeholder="TX" maxlength="2" autocomplete="address-level1" style="text-transform:uppercase">
+                        </div>
+                        <div class="ob-field-group" style="flex:1">
+                            <label>ZIP code</label>
+                            <input type="text" id="ob-zip" placeholder="78701" maxlength="10" autocomplete="postal-code">
+                        </div>
+                    </div>
+                    <div id="ob-ne-result" style="display:none;margin-top:16px;padding:16px;background:rgba(78,204,163,0.08);border:1px solid rgba(78,204,163,0.2);border-radius:10px">
+                        <div style="font-size:13px;font-weight:600;color:#4ecca3;margin-bottom:8px" id="ob-ne-label">Non-emergency number found</div>
+                        <div style="font-size:20px;font-weight:700;letter-spacing:0.5px" id="ob-ne-phone"></div>
+                        <div style="font-size:12px;color:#8888a0;margin-top:4px" id="ob-ne-dept"></div>
+                        <a id="ob-ne-source" href="#" target="_blank" style="font-size:12px;color:#5bc0de;margin-top:8px;display:inline-block">Verify on department website →</a>
+                    </div>
+                    <div id="ob-ne-notfound" style="display:none;margin-top:16px;padding:16px;background:rgba(233,69,96,0.08);border:1px solid rgba(233,69,96,0.2);border-radius:10px">
+                        <div style="font-size:13px;font-weight:600;color:#e94560;margin-bottom:8px">Not in our database yet</div>
+                        <p style="font-size:13px;color:#8888a0;margin:0 0 8px">Please look up your local police non-emergency number and enter it below.</p>
+                        <a id="ob-ne-search-link" href="#" target="_blank" style="font-size:12px;color:#5bc0de;display:inline-block;margin-bottom:12px">Search for your number →</a>
+                    </div>
+                    <div class="ob-field-group" id="ob-ne-manual-group" style="display:none;margin-top:12px">
+                        <label>Non-emergency number</label>
+                        <input type="tel" id="ob-ne-manual" placeholder="+1 555 000 0000">
+                    </div>
+                    <button class="ob-next-btn" id="ob-ne-lookup-btn" onclick="obLookupAddress()" style="margin-top:16px">Look up my area →</button>
+                    <button class="ob-next-btn" id="ob-ne-save-btn" onclick="obSaveAddress()" style="display:none;margin-top:12px">Confirm &amp; continue →</button>
+                    <p id="ob-address-error" class="error-text"></p>
+                    <div class="ob-nav">
+                        <button class="ob-back-btn" onclick="obBack()">← Back</button>
+                    </div>
+                    <button class="ob-skip-btn" onclick="obNext()">Set up later</button>
+                </div>
+
+                <!-- Step 5: Notifications -->
+                <div class="onboarding-step" data-step="5">
+                    <div class="ob-step-num">Step 4 of 4</div>
                     <h2>Enable notifications</h2>
                     <p class="onboarding-sub">Still Here needs to reach you. Push notifications are how we send your daily check-in tap.</p>
                     <div id="ob-notif-state">
@@ -162,7 +209,7 @@
                 </div>
 
                 <!-- Done -->
-                <div class="onboarding-step" data-step="5">
+                <div class="onboarding-step" data-step="6">
                     <div class="ob-done-icon">🛡️</div>
                     <h2>You're protected.</h2>
                     <p class="onboarding-sub">Someone always knows. Check-ins start tomorrow at your set time. You can change everything in Settings.</p>
@@ -275,6 +322,25 @@
                         <p class="confirm-hint">Your contacts believe you're safe. Please confirm.</p>
                         <button id="user-confirm-btn" class="btn-confirm-user">I'm Safe ✓</button>
                         <button id="cancel-escalation-btn" class="btn btn-danger" style="display:none;margin-top:8px;width:100%">Cancel Escalation (False Alarm)</button>
+                    </div>
+                    <div id="activity-timer-section" style="margin:16px 0;padding:16px;background:#1a1a2e;border-radius:12px;display:none">
+                        <h3 style="margin:0 0 12px;font-size:16px;font-weight:600">Activity Timer</h3>
+                        <div id="activity-timer-display" style="display:none;margin-bottom:12px">
+                            <p style="font-size:14px;margin:0 0 8px;opacity:0.7">
+                                <span id="activity-timer-label" style="font-weight:600"></span>
+                            </p>
+                            <div style="font-size:24px;font-weight:700;color:#4ecca3;margin-bottom:12px">
+                                <span id="activity-timer-countdown">--:--:--</span>
+                            </div>
+                            <button id="cancel-timer-btn" class="btn btn-danger" style="width:100%">Cancel Timer</button>
+                        </div>
+                        <div id="activity-timer-form">
+                            <div style="display:flex;gap:8px;margin-bottom:12px">
+                                <input type="number" id="timer-hours" placeholder="Hours" min="0.25" step="0.25" style="flex:1;padding:10px;border-radius:6px;background:#0f0f1a;border:1px solid #2a2a3e;color:#eee;font-size:14px">
+                                <input type="text" id="timer-label" placeholder="Activity" maxlength="50" style="flex:1;padding:10px;border-radius:6px;background:#0f0f1a;border:1px solid #2a2a3e;color:#eee;font-size:14px">
+                            </div>
+                            <button id="start-timer-btn" class="btn" style="width:100%">Start Timer</button>
+                        </div>
                     </div>
                     <div id="quick-stats">
                         <div class="stat-item">
@@ -407,7 +473,7 @@
                         <h3 class="section-title">Check-in Schedule</h3>
                         <p id="settings-error" class="error-text"></p>
                         <p id="settings-saved" class="success-text"></p>
-                        <label>Check-in Time (UTC)
+                        <label>Check-in Time <span id="tz-label" style="opacity:0.5;font-size:12px"></span>
                             <input type="time" id="setting-checkin-time" value="09:00">
                         </label>
                         <label>Grace Period (minutes)
@@ -448,6 +514,56 @@
                         <div class="vacation-btn-row">
                             <button id="save-vacation-btn">Save Vacation</button>
                             <button id="clear-vacation-btn" class="btn-secondary">Clear</button>
+                        </div>
+                    </div>
+                    <div class="settings-card">
+                        <h3 class="section-title">Address & Welfare Check</h3>
+                        <p style="font-size:13px;opacity:0.55;margin-bottom:16px">Your address is used for welfare checks if all other escalation steps fail.</p>
+                        <p id="addr-error" class="error-text"></p>
+                        <label>Street Address
+                            <input type="text" id="addr-street" placeholder="123 Main St, Apt 4">
+                        </label>
+                        <label>City
+                            <input type="text" id="addr-city" placeholder="New York">
+                        </label>
+                        <label>State
+                            <input type="text" id="addr-state" placeholder="NY" maxlength="30">
+                        </label>
+                        <label>ZIP Code
+                            <input type="text" id="addr-zip" placeholder="10001" maxlength="10">
+                        </label>
+                        <div id="ne-lookup-result" style="display:none;margin:12px 0;padding:12px;border-radius:8px;background:rgba(78,204,163,0.08);border:1px solid rgba(78,204,163,0.15)">
+                            <p style="font-size:13px;margin:0 0 4px"><strong id="ne-dept"></strong></p>
+                            <p style="font-size:15px;font-weight:600;margin:0 0 4px;color:#4ecca3" id="ne-phone"></p>
+                            <a id="ne-source" href="#" target="_blank" style="font-size:12px;opacity:0.5">Verify this number →</a>
+                        </div>
+                        <button id="addr-lookup-btn" class="btn-secondary" style="width:100%;margin-bottom:8px">Look Up Non-Emergency Number</button>
+                        <button id="addr-save-btn" style="width:100%">Save Address</button>
+                    </div>
+                    <div class="settings-card" id="dead-letters-section">
+                        <h3 class="section-title">Dead Letters</h3>
+                        <p style="font-size:13px;opacity:0.55;margin-bottom:16px">Messages sent to your contacts if you stop checking in for an extended period.</p>
+                        <div id="dead-letters-list"></div>
+                        <button id="add-dead-letter-btn" class="btn-secondary" style="width:100%">Add Dead Letter</button>
+                        <div id="dead-letter-form" style="display:none;margin-top:16px">
+                            <input type="text" id="dl-subject" placeholder="Subject" maxlength="200" style="width:100%;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f5f5f5;font-size:14px;margin-bottom:12px">
+                            <textarea id="dl-body" placeholder="Your message..." rows="4" maxlength="5000" style="width:100%;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f5f5f5;font-size:14px;resize:vertical;margin-bottom:12px"></textarea>
+                            <label style="display:block;margin-bottom:12px">
+                                <span style="display:block;font-size:13px;margin-bottom:8px">Send after (days without check-in)</span>
+                                <input type="number" id="dl-days" value="30" min="7" max="365" style="width:100%;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f5f5f5;font-size:14px">
+                            </label>
+                            <label style="display:block;margin-bottom:12px">
+                                <span style="display:block;font-size:13px;margin-bottom:8px">Send to</span>
+                                <select id="dl-recipient-type" style="width:100%;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f5f5f5;font-size:14px">
+                                    <option value="contacts">All Emergency Contacts</option>
+                                    <option value="email">Specific Email</option>
+                                </select>
+                            </label>
+                            <input type="email" id="dl-email" placeholder="Email address (if specific email)" style="width:100%;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f5f5f5;font-size:14px;display:none;margin-bottom:12px">
+                            <div style="display:flex;gap:8px">
+                                <button id="dl-save-btn" style="flex:1">Save</button>
+                                <button id="dl-cancel-btn" class="btn-secondary" style="flex:1">Cancel</button>
+                            </div>
                         </div>
                     </div>
                     <div class="settings-card" id="family-section">

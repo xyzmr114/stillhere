@@ -83,11 +83,13 @@ async def stripe_webhook(request: Request):
         except stripe.error.SignatureVerificationError:
             raise HTTPException(status_code=400, detail="Invalid signature")
         except Exception:
+            logger.exception("Failed to construct Stripe webhook event")
             raise HTTPException(status_code=400, detail="Webhook error")
     else:
         try:
             event = json.loads(body)
         except Exception:
+            logger.exception("Failed to parse webhook payload as JSON")
             raise HTTPException(status_code=400, detail="Invalid payload")
 
     if event["type"] == "checkout.session.completed":

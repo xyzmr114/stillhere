@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -11,6 +12,9 @@ from config import settings
 from dependencies import get_current_user
 from db import get_session, get_user_by_email
 from limiter import limiter
+from validators import validate_phone, validate_timezone, validate_checkin_time
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -75,6 +79,11 @@ class UserPatch(BaseModel):
     vacation_end: Optional[str] = None
     is_dormant: bool = None
     accepted_tos: bool = None
+    address: str = None
+    city: str = None
+    state: str = None
+    zip_code: str = None
+    timezone: str = None
 
 
 @router.post("/register")
@@ -82,6 +91,12 @@ class UserPatch(BaseModel):
 def register(request: Request, body: RegisterIn, db=Depends(get_session)):
     if not body.accepted_tos:
         raise HTTPException(status_code=400, detail="You must accept the Terms of Service")
+    if len(body.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    if body.phone:
+        valid_phone = validate_phone(body.phone)
+        if not valid_phone:
+            raise HTTPException(status_code=400, detail="Invalid phone number")
     existing = get_user_by_email(db, body.email)
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -100,7 +115,7 @@ def register(request: Request, body: RegisterIn, db=Depends(get_session)):
         send_welcome_email(body.email, body.name)
         send_verification_email(body.email, body.name, uid)
     except Exception:
-        pass
+        logger.exception("Failed to send welcome/verification emails during registration for user %s", uid)
     return {"token": token, "user_id": uid}
 
 
@@ -117,7 +132,7 @@ def login(request: Request, body: LoginIn, db=Depends(get_session)):
 @router.post("/device-token")
 def register_device_token(body: DeviceTokenIn, user=Depends(get_current_user), db=Depends(get_session)):
     db.execute(
-        text("UPDATE users SET device_token = :token WHERE id = :uid"),
+        text("UPDATE users SET device_token = :token WHERE id::text = :uid"),
         {"token": body.token, "uid": str(user["id"])},
     )
     db.commit()
@@ -132,7 +147,7 @@ class WebPushSubscribeIn(BaseModel):
 def register_web_push(body: WebPushSubscribeIn, user=Depends(get_current_user), db=Depends(get_session)):
     import json
     db.execute(
-        text("UPDATE users SET device_token = :token WHERE id = :uid"),
+        text("UPDATE users SET device_token = :token WHERE id::text = :uid"),
         {"token": json.dumps(body.subscription), "uid": str(user["id"])},
     )
     db.commit()
@@ -154,6 +169,28 @@ def get_me(user=Depends(get_current_user)):
 @router.patch("/me")
 def update_me(body: UserPatch, user=Depends(get_current_user), db=Depends(get_session)):
     raw = body.model_dump(exclude_unset=True)
+
+    # Validate timezone if provided
+    if "timezone" in raw and raw["timezone"] is not None:
+        valid_tz = validate_timezone(raw["timezone"])
+        if not valid_tz:
+            raise HTTPException(status_code=400, detail="Invalid timezone")
+        raw["timezone"] = valid_tz
+
+    # Validate checkin_time if provided
+    if "checkin_time" in raw and raw["checkin_time"] is not None:
+        valid_time = validate_checkin_time(raw["checkin_time"])
+        if not valid_time:
+            raise HTTPException(status_code=400, detail="Invalid check-in time. Format: HH:MM (24-hour)")
+        raw["checkin_time"] = valid_time
+
+    # Validate phone if provided
+    if "phone" in raw and raw["phone"] is not None:
+        valid_phone = validate_phone(raw["phone"])
+        if not valid_phone:
+            raise HTTPException(status_code=400, detail="Invalid phone number")
+        raw["phone"] = valid_phone
+
     has_start = "vacation_start" in raw and raw["vacation_start"] is not None
     has_end = "vacation_end" in raw and raw["vacation_end"] is not None
     has_start_null = "vacation_start" in raw and raw["vacation_start"] is None
@@ -184,18 +221,27 @@ def update_me(body: UserPatch, user=Depends(get_current_user), db=Depends(get_se
         return user
     if fields.get("is_dormant") is False:
         fields["last_device_ping"] = "NOW()"
+    ALLOWED_COLUMNS = {
+        "name", "phone", "checkin_time", "grace_minutes", "retry_count",
+        "retry_interval_hours", "device_token", "snooze_until",
+        "confirm_by_minutes", "streak_reminder_hours", "vacation_start",
+        "vacation_end", "is_dormant", "contact_grace_hours",
+        "address", "city", "state", "zip_code", "timezone",
+    }
     set_parts = []
     for k in fields:
         if k == "last_device_ping":
             set_parts.append("last_device_ping = NOW()")
         elif k == "_accept_tos":
             set_parts.append("accepted_tos = TRUE")
-        else:
+        elif k in ALLOWED_COLUMNS:
             set_parts.append(f"{k} = :{k}")
+        else:
+            continue
     sets = ", ".join(set_parts)
     clean_fields = {k: v for k, v in fields.items() if k != "_accept_tos"}
     clean_fields["uid"] = str(user["id"])
-    db.execute(text(f"UPDATE users SET {sets} WHERE id = :uid"), clean_fields)
+    db.execute(text(f"UPDATE users SET {sets} WHERE id::text = :uid"), clean_fields)
     db.commit()
     from db import get_user
 
@@ -226,7 +272,7 @@ def resend_verification(request: Request, user=Depends(get_current_user)):
         from services.email_svc import send_verification_email
         send_verification_email(user["email"], user["name"], str(user["id"]))
     except Exception:
-        pass
+        logger.exception("Failed to send verification email for user %s", str(user["id"]))
     return {"ok": True}
 
 
@@ -247,7 +293,7 @@ def forgot_password(request: Request, body: ForgotPasswordIn, db=Depends(get_ses
             from services.email_svc import send_password_reset_email
             send_password_reset_email(body.email, user["name"], token)
         except Exception:
-            pass
+            logger.exception("Failed to send password reset email for user %s", str(user["id"]))
     return {"message": "If that email exists, a reset link has been sent."}
 
 
@@ -262,7 +308,7 @@ def reset_password(body: ResetPasswordIn, db=Depends(get_session)):
     if len(body.new_password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     pw_hash = hash_password(body.new_password)
-    db.execute(text("UPDATE users SET password_hash = :pw WHERE id = :uid"), {"pw": pw_hash, "uid": uid})
+    db.execute(text("UPDATE users SET password_hash = :pw WHERE id::text = :uid"), {"pw": pw_hash, "uid": uid})
     db.commit()
     return {"message": "Password updated successfully"}
 

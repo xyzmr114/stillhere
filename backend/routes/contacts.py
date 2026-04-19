@@ -1,8 +1,12 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from db import get_session, get_contacts, add_contact, update_contact, delete_contact, create_portal_token
 from dependencies import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/contacts", tags=["contacts"])
 
@@ -42,7 +46,7 @@ def create_contact(body: ContactIn, user=Depends(get_current_user), db=Depends(g
             from services.email_svc import send_contact_welcome_email
             send_contact_welcome_email(body.email, body.name, user["name"], portal_token)
         except Exception:
-            pass
+            logger.exception("Failed to send contact welcome email to %s for user %s", body.email, str(user["id"]))
     return {"id": cid, "portal_token": portal_token, "message": "Contact added"}
 
 

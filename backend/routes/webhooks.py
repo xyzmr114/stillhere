@@ -1,10 +1,13 @@
 import json
+import logging
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from db import get_session, register_sensor, update_sensor_reading, get_user_sensors, delete_sensor, get_user_by_alexa_id, auto_checkin_if_active, get_user
 from dependencies import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
@@ -33,7 +36,7 @@ def receive_sensor(body: SensorReading, api_key: str = Header(None, alias="X-API
                 effective_user = get_user(db, str(key_row["user_id"]))
                 touch_api_key(db, str(key_row["id"]))
         except Exception:
-            pass
+            logger.exception("Failed to authenticate sensor webhook via API key")
     if not effective_user:
         effective_user = user
     if not effective_user:

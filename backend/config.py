@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
     celery_broker: str = "redis://localhost:6379/0"
     base_url: str = "https://stillherehq.com"
+    cors_origins: str = "https://stillhere.databunker.uk"
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
     aws_region: str = "us-east-1"
@@ -42,6 +43,7 @@ class Settings(BaseSettings):
     smtp_tls: bool = True
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
+    twilio_phone_number: str = ""
     twilio_verify_sid: str = ""
     demo_sms_to: str = ""
     stripe_secret_key: str = ""

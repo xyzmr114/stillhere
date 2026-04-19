@@ -1,0 +1,2 @@
+ALTER TABLE users ADD COLUMN IF NOT EXISTS activity_timer_end TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS activity_timer_label TEXT;

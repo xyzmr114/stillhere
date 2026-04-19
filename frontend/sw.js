@@ -6,11 +6,18 @@ if (self.__FIREBASE_CONFIG?.apiKey) {
     firebase.initializeApp(self.__FIREBASE_CONFIG);
     const messaging = firebase.messaging();
     messaging.onBackgroundMessage((payload) => {
+        const actions = payload.data?.quick_checkin_token ? [
+            { action: "checkin", title: "I'm OK" }
+        ] : [];
         self.registration.showNotification(payload.notification?.title || "Still Here", {
             body: payload.notification?.body || "",
             icon: "/icons/icon-192.png",
-            data: { url: payload.data?.url || "/app" },
+            data: {
+                url: payload.data?.url || "/app",
+                quick_checkin_token: payload.data?.quick_checkin_token
+            },
             vibrate: [200, 100, 200],
+            actions: actions,
         });
     });
 }
@@ -19,19 +26,47 @@ self.addEventListener("push", (e) => {
     if (!e.data) return;
     let data = {};
     try { data = e.data.json(); } catch { data = { title: "Still Here", body: e.data.text() }; }
+    const actions = data.quick_checkin_token ? [
+        { action: "checkin", title: "I'm OK" }
+    ] : [];
     e.waitUntil(
         self.registration.showNotification(data.title || "Still Here", {
             body: data.body || "",
             icon: "/icons/icon-192.png",
-            data: { url: data.url || "/app" },
+            data: {
+                url: data.url || "/app",
+                quick_checkin_token: data.quick_checkin_token
+            },
             vibrate: [200, 100, 200],
+            actions: actions,
         })
     );
 });
 
 self.addEventListener("notificationclick", (event) => {
     event.notification.close();
-    event.waitUntil(clients.openWindow(event.notification.data?.url || "/app"));
+    if (event.action === "checkin") {
+        // Handle "I'm OK" button tap
+        const token = event.notification.data?.quick_checkin_token;
+        if (token) {
+            event.waitUntil(
+                fetch("/checkin/quick", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token })
+                }).then(r => {
+                    if (r.ok) {
+                        self.registration.showNotification("Still Here ✓", {
+                            body: "Check-in confirmed!",
+                            icon: "/icons/icon-192.png",
+                        });
+                    }
+                }).catch(() => {})
+            );
+        }
+    } else {
+        event.waitUntil(clients.openWindow(event.notification.data?.url || "/app"));
+    }
 });
 
 const CACHE = "stillhere-v2";

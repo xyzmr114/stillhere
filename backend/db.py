@@ -5,6 +5,15 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from config import settings
+from constants import (
+    MAX_CHECKIN_NOTE_LENGTH,
+    MAX_CHECKIN_HISTORY_LIMIT,
+    MAX_STREAK_LOOKBACK_DAYS,
+    MIN_STREAK_FOR_REMINDER,
+    MAX_AUDIT_LOG_LIMIT,
+    DEFAULT_STREAK_REMINDER_HOURS,
+    DEFAULT_AUTO_CHECKIN_GRACE_MINUTES,
+)
 
 engine = create_engine(settings.database_url)
 SessionLocal = sessionmaker(bind=engine)
@@ -33,21 +42,27 @@ def get_user_by_email(db, email: str):
 
 
 def get_users_due_for_checkin(db):
-    now_utc = datetime.now(timezone.utc)
-    current_time = now_utc.time().replace(second=0, microsecond=0)
     rows = db.execute(
-        text("SELECT * FROM users WHERE checkin_time = :t"), {"t": current_time}
+        text(
+            "SELECT * FROM users "
+            "WHERE checkin_time = (NOW() AT TIME ZONE COALESCE(timezone, 'UTC'))::time(0) "
+            "AND is_dormant = FALSE"
+        ),
     ).mappings().all()
     return [dict(r) for r in rows]
 
 
 def has_checked_in_today(db, user_id: str) -> bool:
-    today = date.today()
+    # Use the user's timezone to determine "today"
     row = db.execute(
         text(
-            "SELECT 1 FROM checkins WHERE user_id = :uid AND checked_in_at::date = :today LIMIT 1"
+            "SELECT 1 FROM checkins c JOIN users u ON c.user_id = u.id "
+            "WHERE c.user_id::text = :uid "
+            "AND c.checked_in_at AT TIME ZONE COALESCE(u.timezone, 'UTC') >= "
+            "(NOW() AT TIME ZONE COALESCE(u.timezone, 'UTC'))::date "
+            "LIMIT 1"
         ),
-        {"uid": user_id, "today": today},
+        {"uid": user_id},
     ).first()
     return row is not None
 
@@ -63,12 +78,15 @@ def log_checkin(db, user_id: str, method: str = "app"):
 
 
 def get_today_checkin(db, user_id: str):
-    today = date.today()
     row = db.execute(
         text(
-            "SELECT * FROM checkins WHERE user_id = :uid AND checked_in_at::date = :today ORDER BY checked_in_at DESC LIMIT 1"
+            "SELECT c.* FROM checkins c JOIN users u ON c.user_id = u.id "
+            "WHERE c.user_id::text = :uid "
+            "AND c.checked_in_at AT TIME ZONE COALESCE(u.timezone, 'UTC') >= "
+            "(NOW() AT TIME ZONE COALESCE(u.timezone, 'UTC'))::date "
+            "ORDER BY c.checked_in_at DESC LIMIT 1"
         ),
-        {"uid": user_id, "today": today},
+        {"uid": user_id},
     ).mappings().first()
     return dict(row) if row else None
 
@@ -157,7 +175,7 @@ def get_escalation_by_token(db, token: str):
 def get_checkin_history(db, user_id: str):
     rows = db.execute(
         text(
-            "SELECT c.checked_in_at, c.method, c.note FROM checkins c WHERE c.user_id = :uid ORDER BY c.checked_in_at DESC LIMIT 30"
+            f"SELECT c.checked_in_at, c.method, c.note FROM checkins c WHERE c.user_id = :uid ORDER BY c.checked_in_at DESC LIMIT {MAX_CHECKIN_HISTORY_LIMIT}"
         ),
         {"uid": user_id},
     ).mappings().all()
@@ -167,14 +185,26 @@ def get_checkin_history(db, user_id: str):
 def get_streak(db, user_id: str) -> int:
     rows = db.execute(
         text(
-            "SELECT DISTINCT checked_in_at::date AS d FROM checkins WHERE user_id = :uid AND checked_in_at::date <= CURRENT_DATE ORDER BY d DESC LIMIT 365"
+            "SELECT DISTINCT (c.checked_in_at AT TIME ZONE COALESCE(u.timezone, 'UTC'))::date AS d "
+            "FROM checkins c JOIN users u ON c.user_id = u.id "
+            "WHERE c.user_id::text = :uid "
+            "AND (c.checked_in_at AT TIME ZONE COALESCE(u.timezone, 'UTC'))::date <= "
+            "(NOW() AT TIME ZONE COALESCE(u.timezone, 'UTC'))::date "
+            f"ORDER BY d DESC LIMIT {MAX_STREAK_LOOKBACK_DAYS}"
         ),
         {"uid": user_id},
     ).mappings().all()
     if not rows:
         return 0
     dates = [r["d"] for r in rows]
-    today = date.today()
+    today_row = db.execute(
+        text(
+            "SELECT (NOW() AT TIME ZONE COALESCE(timezone, 'UTC'))::date AS today "
+            "FROM users WHERE id::text = :uid"
+        ),
+        {"uid": user_id},
+    ).first()
+    today = today_row[0] if today_row else date.today()
     if dates[0] != today:
         return 0
     streak = 1
@@ -291,7 +321,7 @@ def log_audit_event(db, user_id: str, event_type: str, details: dict = None):
     db.commit()
 
 
-def get_audit_log(db, user_id: str, limit: int = 100):
+def get_audit_log(db, user_id: str, limit: int = MAX_AUDIT_LOG_LIMIT):
     rows = db.execute(
         text("SELECT event_type, details, created_at FROM audit_log WHERE user_id::text = :uid ORDER BY created_at DESC LIMIT :lim"),
         {"uid": user_id, "lim": limit},
@@ -300,10 +330,15 @@ def get_audit_log(db, user_id: str, limit: int = 100):
 
 
 def update_checkin_note(db, user_id: str, note: str):
-    today = date.today()
     db.execute(
-        text("UPDATE checkins SET note = :note WHERE user_id = :uid AND checked_in_at::date = :today"),
-        {"note": note[:280], "uid": user_id, "today": today},
+        text(
+            "UPDATE checkins SET note = :note "
+            "FROM users u "
+            "WHERE checkins.user_id::text = :uid AND u.id::text = :uid "
+            "AND checkins.checked_in_at AT TIME ZONE COALESCE(u.timezone, 'UTC') >= "
+            "(NOW() AT TIME ZONE COALESCE(u.timezone, 'UTC'))::date"
+        ),
+        {"note": note[:MAX_CHECKIN_NOTE_LENGTH], "uid": user_id},
     )
     db.commit()
 
@@ -503,15 +538,16 @@ def get_buddy_status(db, user_id: str):
             continue
         checkin_row = db.execute(
             text(
-                "SELECT checked_in_at FROM checkins WHERE user_id::text = :bid ORDER BY checked_in_at DESC LIMIT 1"
+                "SELECT (c.checked_in_at AT TIME ZONE COALESCE(u.timezone, 'UTC'))::date AS checkin_date, "
+                "(NOW() AT TIME ZONE COALESCE(u.timezone, 'UTC'))::date AS today "
+                "FROM checkins c JOIN users u ON c.user_id = u.id "
+                "WHERE c.user_id::text = :bid ORDER BY c.checked_in_at DESC LIMIT 1"
             ),
             {"bid": buddy_id},
-        ).first()
-        today = date.today()
+        ).mappings().first()
         status = "green"
-        if checkin_row and checkin_row[0]:
-            checkin_date = checkin_row[0].date() if hasattr(checkin_row[0], 'date') else checkin_row[0]
-            if checkin_date != today:
+        if checkin_row:
+            if checkin_row["checkin_date"] != checkin_row["today"]:
                 status = "yellow"
         else:
             status = "red"
@@ -971,16 +1007,21 @@ def get_user_by_alexa_id(db, alexa_user_id: str):
 def auto_checkin_if_active(db, user_id: str, method: str) -> bool:
     if has_checked_in_today(db, user_id):
         return False
-    now_utc = datetime.now(timezone.utc)
     user = get_user(db, user_id)
     if not user:
         return False
     checkin_time = user.get("checkin_time")
-    grace_minutes = user.get("grace_minutes", 60)
+    grace_minutes = user.get("grace_minutes", DEFAULT_AUTO_CHECKIN_GRACE_MINUTES)
     if not checkin_time:
         return False
-    ct = checkin_time if isinstance(checkin_time, time) else now_utc.time()
-    now_mins = now_utc.hour * 60 + now_utc.minute
+    user_tz = user.get("timezone") or "UTC"
+    local_now_row = db.execute(
+        text("SELECT (NOW() AT TIME ZONE :tz)::time AS local_time"),
+        {"tz": user_tz},
+    ).first()
+    local_now = local_now_row[0] if local_now_row else datetime.now(timezone.utc).time()
+    ct = checkin_time if isinstance(checkin_time, time) else local_now
+    now_mins = local_now.hour * 60 + local_now.minute
     ct_mins = ct.hour * 60 + ct.minute
     window_start = ct_mins
     window_end = ct_mins + grace_minutes
@@ -1013,7 +1054,7 @@ def get_api_keys(db, user_id: str):
 
 def lookup_api_key(db, key_hash: str):
     row = db.execute(
-        text("""SELECT ak.id as key_id, u.id, u.email, u.password_hash
+        text("""SELECT ak.id as key_id, u.id, u.email, u.name
                 FROM api_keys ak JOIN users u ON ak.user_id = u.id
                 WHERE ak.key_hash = :kh"""),
         {"kh": key_hash},
@@ -1059,3 +1100,164 @@ def delete_user_account(db, user_id: str):
     db.execute(text("DELETE FROM api_keys WHERE user_id::text = :uid"), {"uid": uid})
     db.execute(text("DELETE FROM users WHERE id::text = :uid"), {"uid": uid})
     db.commit()
+
+
+# ── Non-emergency number lookup ──────────────────────────────────────────────
+
+
+def lookup_non_emergency_number(db, city: str, state: str):
+    row = db.execute(
+        text(
+            "SELECT phone, department, source_url FROM non_emergency_numbers "
+            "WHERE LOWER(city) = LOWER(:city) AND LOWER(state) = LOWER(:state) "
+            "LIMIT 1"
+        ),
+        {"city": city.strip(), "state": state.strip()},
+    ).mappings().first()
+    return dict(row) if row else None
+
+
+def search_non_emergency_numbers(db, query: str):
+    rows = db.execute(
+        text(
+            "SELECT city, state, phone, department, source_url FROM non_emergency_numbers "
+            "WHERE LOWER(city) LIKE :q OR LOWER(state) LIKE :q "
+            "ORDER BY state, city LIMIT 20"
+        ),
+        {"q": f"%{query.lower().strip()}%"},
+    ).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def save_user_address(db, user_id: str, address: str, city: str, state: str, zip_code: str, non_emergency_number: str, verified: bool):
+    db.execute(
+        text(
+            "UPDATE users SET address = :addr, city = :city, state = :state, "
+            "zip_code = :zip, non_emergency_number = :phone, non_emergency_verified = :verified "
+            "WHERE id::text = :uid"
+        ),
+        {
+            "addr": address, "city": city, "state": state,
+            "zip": zip_code, "phone": non_emergency_number,
+            "verified": verified, "uid": user_id,
+        },
+    )
+    db.commit()
+
+
+def get_user_non_emergency_number(db, user_id: str):
+    row = db.execute(
+        text("SELECT non_emergency_number, non_emergency_verified, city, state, address FROM users WHERE id::text = :uid"),
+        {"uid": user_id},
+    ).mappings().first()
+    return dict(row) if row else None
+
+
+# ── Dead Letters ──────────────────────────────────────────────
+
+
+def get_dead_letters(db, user_id: str) -> list:
+    """Get all dead letters for a user."""
+    rows = db.execute(
+        text(
+            "SELECT id, user_id, recipient_type, recipient_email, subject, body, trigger_days, sent_at, created_at, updated_at "
+            "FROM dead_letters WHERE user_id::text = :uid ORDER BY created_at DESC"
+        ),
+        {"uid": user_id},
+    ).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def create_dead_letter(db, user_id: str, subject: str, body: str, trigger_days: int = 30, recipient_type: str = "contacts", recipient_email: str = None) -> str:
+    """Create a dead letter. Returns the ID."""
+    result = db.execute(
+        text(
+            "INSERT INTO dead_letters (user_id, recipient_type, recipient_email, subject, body, trigger_days) "
+            "VALUES (:uid, :rtype, :email, :subject, :body, :days) RETURNING id"
+        ),
+        {
+            "uid": user_id,
+            "rtype": recipient_type,
+            "email": recipient_email,
+            "subject": subject,
+            "body": body,
+            "days": trigger_days,
+        },
+    ).first()
+    db.commit()
+    return str(result[0])
+
+
+def update_dead_letter(db, letter_id: str, user_id: str, **fields):
+    """Update a dead letter."""
+    if not fields:
+        return
+    sets = ", ".join(f"{k} = :{k}" for k in fields)
+    fields["lid"] = letter_id
+    fields["uid"] = user_id
+    db.execute(
+        text(f"UPDATE dead_letters SET {sets}, updated_at = NOW() WHERE id::text = :lid AND user_id::text = :uid"),
+        fields,
+    )
+    db.commit()
+
+
+def delete_dead_letter(db, letter_id: str, user_id: str):
+    """Delete a dead letter."""
+    db.execute(
+        text("DELETE FROM dead_letters WHERE id::text = :lid AND user_id::text = :uid"),
+        {"lid": letter_id, "uid": user_id},
+    )
+    db.commit()
+
+
+def get_dead_letter(db, letter_id: str, user_id: str):
+    """Get a single dead letter."""
+    row = db.execute(
+        text(
+            "SELECT id, user_id, recipient_type, recipient_email, subject, body, trigger_days, sent_at, created_at, updated_at "
+            "FROM dead_letters WHERE id::text = :lid AND user_id::text = :uid"
+        ),
+        {"lid": letter_id, "uid": user_id},
+    ).mappings().first()
+    return dict(row) if row else None
+
+
+def get_unsent_dead_letters(db, user_id: str) -> list:
+    """Get unsent dead letters for a user."""
+    rows = db.execute(
+        text(
+            "SELECT id, user_id, recipient_type, recipient_email, subject, body, trigger_days, created_at "
+            "FROM dead_letters WHERE user_id::text = :uid AND sent_at IS NULL"
+        ),
+        {"uid": user_id},
+    ).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def mark_dead_letter_sent(db, letter_id: str):
+    """Mark a dead letter as sent."""
+    db.execute(
+        text("UPDATE dead_letters SET sent_at = NOW() WHERE id::text = :lid"),
+        {"lid": letter_id},
+    )
+    db.commit()
+
+
+def get_days_since_last_checkin(db, user_id: str) -> int:
+    """Get the number of days since last check-in."""
+    row = db.execute(
+        text(
+            "SELECT EXTRACT(DAY FROM NOW() - MAX(checked_in_at AT TIME ZONE COALESCE(u.timezone, 'UTC'))) AS days_since "
+            "FROM checkins c JOIN users u ON c.user_id = u.id WHERE c.user_id::text = :uid"
+        ),
+        {"uid": user_id},
+    ).mappings().first()
+    if not row or row["days_since"] is None:
+        # User has never checked in
+        row = db.execute(
+            text("SELECT EXTRACT(DAY FROM NOW() - created_at AT TIME ZONE 'UTC') AS days_since FROM users WHERE id::text = :uid"),
+            {"uid": user_id},
+        ).mappings().first()
+        return int(row["days_since"]) if row and row["days_since"] else 0
+    return int(row["days_since"])

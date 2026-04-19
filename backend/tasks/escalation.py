@@ -8,6 +8,19 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from config import settings
+from constants import (
+    SMS_DELAY_SECONDS,
+    DEFAULT_GRACE_MINUTES,
+    DEFAULT_CONTACT_GRACE_HOURS,
+    CONTACT_CHECK_DELAY_SECONDS,
+    CONTACT_RECHECK_DELAY_SECONDS,
+    CONTACT_GRACE_TIMEOUT_RECHECK_SECONDS,
+    NON_EMERGENCY_CALL_RATE_LIMIT_HOURS,
+    DORMANT_ACCOUNT_THRESHOLD_DAYS,
+    DORMANT_REENGAGEMENT_THRESHOLD_DAYS,
+    REENGAGEMENT_EMAIL_RATE_LIMIT_DAYS,
+    MIN_STREAK_FOR_REMINDER,
+)
 
 celery_app = Celery("stillhere", broker=settings.celery_broker)
 celery_app.conf.timezone = "UTC"
@@ -25,33 +38,32 @@ def poll_and_fire():
     db = _db()
     try:
         now_utc = datetime.now(timezone.utc)
-        current_time = now_utc.time().replace(second=0, microsecond=0)
+        # Compare checkin_time against each user's local time using their timezone
         rows = db.execute(
-            text("SELECT * FROM users WHERE checkin_time = :t"),
-            {"t": current_time},
+            text(
+                "SELECT * FROM users "
+                "WHERE checkin_time = (NOW() AT TIME ZONE COALESCE(timezone, 'UTC'))::time(0) "
+                "AND is_dormant = FALSE"
+            ),
         ).mappings().all()
         for user in rows:
             u = dict(user)
             if u.get("snooze_until") and u["snooze_until"] > now_utc:
                 continue
-            vac = db.execute(
-                text("SELECT vacation_start, vacation_end FROM users WHERE id::text = :uid"),
-                {"uid": str(u["id"])},
-            ).mappings().first()
-            v = dict(vac) if vac else {}
-            if v.get("vacation_start") and v.get("vacation_end"):
-                if v["vacation_start"] <= now_utc <= v["vacation_end"]:
+            if u.get("vacation_start") and u.get("vacation_end"):
+                if u["vacation_start"] <= now_utc <= u["vacation_end"]:
                     continue
-            today = now_utc.date()
+            # Check if already checked in today in user's local timezone
+            user_tz = u.get("timezone") or "UTC"
             already = db.execute(
                 text(
-                    "SELECT 1 FROM checkins WHERE user_id::text = :uid AND checked_in_at::date = :d LIMIT 1"
+                    "SELECT 1 FROM checkins WHERE user_id::text = :uid "
+                    "AND checked_in_at AT TIME ZONE :tz >= (NOW() AT TIME ZONE :tz)::date "
+                    "LIMIT 1"
                 ),
-                {"uid": str(u["id"]), "d": today},
+                {"uid": str(u["id"]), "tz": user_tz},
             ).first()
             if already:
-                continue
-            if u.get("is_dormant"):
                 continue
             schedule_daily_checkin.delay(str(u["id"]))
     finally:
@@ -62,6 +74,7 @@ def poll_and_fire():
 def schedule_daily_checkin(user_id: str):
     from db import log_escalation_event, get_random_checkin_message
     from services.push_svc import send_push
+    from auth import create_jwt
 
     db = _db()
     try:
@@ -70,7 +83,7 @@ def schedule_daily_checkin(user_id: str):
             {"uid": user_id},
         ).mappings().first()
         u = dict(user) if user else {}
-        grace = u.get("grace_minutes", 120)
+        grace = u.get("grace_minutes", DEFAULT_GRACE_MINUTES)
         confirm_by = u.get("confirm_by_minutes", 0) or 0
         total_grace = grace + confirm_by
         msg = get_random_checkin_message(db)
@@ -78,7 +91,16 @@ def schedule_daily_checkin(user_id: str):
             from db import get_random_prompt
             prompt = get_random_prompt(db)
             push_body = f"{msg}" if not prompt else f"{msg}\n💡 {prompt}"
-            send_push(u["device_token"], "Still Here", push_body, settings.base_url)
+            # Generate quick-checkin token (1 hour expiry)
+            quick_token = create_jwt(user_id)
+            # Add type to token payload for validation
+            from jose import jwt
+            payload = jwt.decode(quick_token, settings.jwt_secret, algorithms=["HS256"])
+            payload["type"] = "quick_checkin"
+            payload["exp"] = datetime.now(timezone.utc) + timedelta(hours=1)
+            quick_token = jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
+            push_data = {"quick_checkin_token": quick_token}
+            send_push(u["device_token"], "Still Here", push_body, settings.base_url, data=push_data)
         event_id = log_escalation_event(db, user_id, "checkin_requested")
         user_row = db.execute(
             text("SELECT email, name FROM users WHERE id::text = :uid"),
@@ -88,7 +110,36 @@ def schedule_daily_checkin(user_id: str):
             u = dict(user_row)
             from services.email_svc import send_checkin_email
             send_checkin_email(u["email"], u.get("name", ""), user_id)
+        sms_to_user.apply_async(args=[user_id], countdown=SMS_DELAY_SECONDS)
         check_user_grace.apply_async(args=[user_id, str(event_id)], countdown=total_grace * 60)
+    finally:
+        db.close()
+
+
+@celery_app.task
+def sms_to_user(user_id: str):
+    from db import has_checked_in_today
+    from services.sns_svc import send_sms
+
+    db = _db()
+    try:
+        if has_checked_in_today(db, user_id):
+            return
+        user = db.execute(
+            text("SELECT phone, name FROM users WHERE id::text = :uid"),
+            {"uid": user_id},
+        ).mappings().first()
+        if not user:
+            return
+        u = dict(user)
+        if not u.get("phone"):
+            return
+        checkin_url = f"{settings.base_url}/app"
+        send_sms(
+            u["phone"],
+            f"Hey {u.get('name', 'there')}, you haven't checked in yet today. "
+            f"Tap to check in: {checkin_url}",
+        )
     finally:
         db.close()
 
@@ -117,6 +168,7 @@ def escalate_to_contacts(user_id: str, escalation_event_id: str):
     from db import get_contacts
     from services.sns_svc import send_sms
     from services.push_svc import send_push
+    from services.email_svc import _send_email
 
     db = _db()
     try:
@@ -146,6 +198,19 @@ def escalate_to_contacts(user_id: str, escalation_event_id: str):
                 c["phone"],
                 f"Hi {c['name']}, {user_name} missed their check-in. Are they safe? Confirm: {confirm_url}",
             )
+            # Send email if contact has one
+            if c.get("email"):
+                from email_templates import contact_alert
+                email_html = contact_alert(user_name, confirm_url)
+                _send_email(
+                    c["email"],
+                    f"Emergency: {user_name} missed their check-in",
+                    email_html,
+                )
+        from services.sns_svc import call_contact
+        for c in contacts:
+            if c.get("phone"):
+                call_contact(c["phone"], user_name)
         if u.get("device_token"):
             send_push(u["device_token"], "Contacts Notified", "We've notified your emergency contacts.", settings.base_url)
         db.execute(
@@ -153,8 +218,8 @@ def escalate_to_contacts(user_id: str, escalation_event_id: str):
             {"eid": escalation_event_id},
         )
         db.commit()
-        contact_grace_hours = u.get("contact_grace_hours", 48)
-        check_contact_majority.apply_async(args=[user_id, escalation_event_id], countdown=600)
+        contact_grace_hours = u.get("contact_grace_hours", DEFAULT_CONTACT_GRACE_HOURS)
+        check_contact_majority.apply_async(args=[user_id, escalation_event_id], countdown=CONTACT_CHECK_DELAY_SECONDS)
         contact_grace_timeout.apply_async(args=[user_id, escalation_event_id], countdown=contact_grace_hours * 3600)
     finally:
         db.close()
@@ -201,17 +266,17 @@ def check_contact_majority(user_id: str, escalation_event_id: str):
                     f"Please confirm: {settings.base_url}/confirm-user/{escalation_event_id}",
                     f"{settings.base_url}/confirm-user/{escalation_event_id}",
                 )
-            check_contact_majority.apply_async(args=[user_id, escalation_event_id], countdown=3600)
+            check_contact_majority.apply_async(args=[user_id, escalation_event_id], countdown=CONTACT_MAJORITY_CHECK_INTERVAL_SECONDS)
         else:
             user = db.execute(
                 text("SELECT contact_grace_hours FROM users WHERE id::text = :uid"),
                 {"uid": user_id},
             ).mappings().first()
             u = dict(user) if user else {}
-            grace_hours = u.get("contact_grace_hours", 48)
+            grace_hours = u.get("contact_grace_hours", DEFAULT_CONTACT_GRACE_HOURS)
             deadline = e["triggered_at"] + timedelta(hours=grace_hours)
             if datetime.now(timezone.utc) < deadline:
-                check_contact_majority.apply_async(args=[user_id, escalation_event_id], countdown=7200)
+                check_contact_majority.apply_async(args=[user_id, escalation_event_id], countdown=CONTACT_RECHECK_DELAY_SECONDS)
             else:
                 call_non_emergency_task.delay(user_id)
     finally:
@@ -258,7 +323,7 @@ def contact_grace_timeout(user_id: str, escalation_event_id: str):
                         f"Your contacts believe you're safe. Confirm: {settings.base_url}/confirm-user/{escalation_event_id}",
                         f"{settings.base_url}/confirm-user/{escalation_event_id}",
                     )
-                contact_grace_timeout.apply_async(args=[user_id, escalation_event_id], countdown=14400)
+                contact_grace_timeout.apply_async(args=[user_id, escalation_event_id], countdown=CONTACT_GRACE_TIMEOUT_RECHECK_SECONDS)
         else:
             call_non_emergency_task.delay(user_id)
     finally:
@@ -274,28 +339,37 @@ def call_non_emergency_task(user_id: str):
     db = _db()
     try:
         rate = db.execute(
-            text("SELECT 1 FROM escalation_events WHERE user_id::text = :uid AND stage = 'non_emergency_call' AND triggered_at > NOW() - INTERVAL '72 hours' LIMIT 1"),
-            {"uid": user_id},
+            text("SELECT 1 FROM escalation_events WHERE user_id::text = :uid AND stage = 'non_emergency_call' AND triggered_at > NOW() - INTERVAL '1 hour' * :hours LIMIT 1"),
+            {"uid": user_id, "hours": NON_EMERGENCY_CALL_RATE_LIMIT_HOURS},
         ).first()
         if rate:
             return
         user = db.execute(
-            text("SELECT name, phone, device_token FROM users WHERE id::text = :uid"),
+            text("SELECT name, phone, device_token, non_emergency_number, address, city, state FROM users WHERE id::text = :uid"),
             {"uid": user_id},
         ).mappings().first()
         if not user:
             return
         u = dict(user)
+        if not u.get("non_emergency_number"):
+            import logging
+            logging.getLogger(__name__).warning(f"[ESCALATION] User {user_id} has no non-emergency number — skipping welfare call")
+            return
         log_escalation_event(db, user_id, "non_emergency_call")
-        call_non_emergency(u.get("name", ""), u.get("phone", ""))
+        address_parts = [p for p in [u.get("address"), u.get("city"), u.get("state")] if p]
+        location = ", ".join(address_parts) if address_parts else None
+        call_non_emergency(u.get("name", ""), u.get("non_emergency_number", ""), location)
         if u.get("device_token"):
-            send_push(u["device_token"], "Wellness Check Requested", "Please check in if safe.", settings.base_url)
+            send_push(u["device_token"], "Wellness Check Requested", "A welfare check has been requested. Please check in if you are safe.", settings.base_url)
     finally:
         db.close()
 
 
 @celery_app.task
 def send_weekly_digest():
+    from services.email_svc import _send_email
+    from email_templates import weekly_digest
+
     db = _db()
     try:
         now = datetime.now(timezone.utc)
@@ -311,19 +385,13 @@ def send_weekly_digest():
                 text("SELECT COUNT(*) FROM checkins WHERE user_id::text = :uid AND checked_in_at > :week_ago"),
                 {"uid": uid, "week_ago": week_ago},
             ).scalar()
-            import resend
-            resend.api_key = settings.resend_api_key
             try:
-                resend.Emails.send({
-                    "from": settings.email_from,
-                    "to": [u["email"]],
-                    "subject": f"Your weekly Still Here report — {count}/7 days",
-                    "html": f"""<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:480px;margin:0 auto;padding:40px 20px;text-align:center;background:#0f0f1a;color:#eee">
-<h1 style="font-size:28px;font-weight:700;color:#4ecca3">Weekly Report</h1>
-<p style="font-size:16px;line-height:1.6;opacity:.8">Hey {u.get('name', '')}, you checked in <strong>{count}/7</strong> days this week.</p>
-<p style="font-size:14px;opacity:.6">Keep going — someone always knows you're here.</p>
-<div style="font-size:12px;opacity:.3;letter-spacing:1px;margin-top:40px">STILL HERE</div></div>""",
-                })
+                html = weekly_digest(u.get('name', ''), count)
+                _send_email(
+                    u["email"],
+                    f"Your weekly Still Here report — {count}/7 days",
+                    html,
+                )
             except Exception:
                 pass
     finally:
@@ -338,7 +406,7 @@ def check_streak_reminders():
         from services.push_svc import send_push
         now_utc = datetime.now(timezone.utc)
         rows = db.execute(
-            text("SELECT id, checkin_time, confirm_by_minutes, streak_reminder_hours, device_token FROM users WHERE device_token IS NOT NULL"),
+            text("SELECT id, checkin_time, confirm_by_minutes, streak_reminder_hours, device_token, timezone FROM users WHERE device_token IS NOT NULL"),
         ).mappings().all()
         for user in rows:
             u = dict(user)
@@ -346,16 +414,25 @@ def check_streak_reminders():
             if has_checked_in_today(db, uid):
                 continue
             streak = get_streak(db, uid)
-            if streak < 3:
+            if streak < MIN_STREAK_FOR_REMINDER:
                 continue
             checkin_time = u.get("checkin_time")
             if not checkin_time:
                 continue
             confirm_by = u.get("confirm_by_minutes", 0) or 0
-            reminder_hours = u.get("streak_reminder_hours", 2) or 2
-            target_time = datetime.combine(now_utc.date(), checkin_time) + timedelta(minutes=confirm_by) - timedelta(hours=reminder_hours)
-            target_time = target_time.replace(tzinfo=timezone.utc)
-            if abs((now_utc - target_time).total_seconds()) < 1800:
+            reminder_hours = u.get("streak_reminder_hours", DEFAULT_STREAK_REMINDER_HOURS) or DEFAULT_STREAK_REMINDER_HOURS
+            # Calculate target time in user's local timezone
+            from zoneinfo import ZoneInfo
+            user_tz_name = u.get("timezone") or "UTC"
+            try:
+                user_tz = ZoneInfo(user_tz_name)
+            except (KeyError, Exception):
+                user_tz = ZoneInfo("UTC")
+            now_local = now_utc.astimezone(user_tz)
+            target_time = datetime.combine(now_local.date(), checkin_time) + timedelta(minutes=confirm_by) - timedelta(hours=reminder_hours)
+            target_time = target_time.replace(tzinfo=user_tz)
+            from constants import STREAK_REMINDER_WINDOW_SECONDS
+            if abs((now_utc - target_time.astimezone(timezone.utc)).total_seconds()) < STREAK_REMINDER_WINDOW_SECONDS:
                 send_push(u["device_token"], f"{streak}-day streak at risk!", "Just a friendly reminder to check in today.", settings.base_url)
     finally:
         db.close()
@@ -377,16 +454,16 @@ def check_dormant_accounts():
             if not last_ping:
                 continue
             days_inactive = (now - last_ping.replace(tzinfo=timezone.utc)).days
-            if days_inactive >= 30:
+            if days_inactive >= DORMANT_ACCOUNT_THRESHOLD_DAYS:
                 db.execute(
                     text("UPDATE users SET is_dormant = TRUE WHERE id::text = :uid"),
                     {"uid": uid},
                 )
                 db.commit()
-            elif days_inactive >= 14:
+            elif days_inactive >= DORMANT_REENGAGEMENT_THRESHOLD_DAYS:
                 reengaged = db.execute(
-                    text("SELECT 1 FROM audit_log WHERE user_id::text = :uid AND event_type = 'reengagement_email' AND created_at > NOW() - INTERVAL '7 days' LIMIT 1"),
-                    {"uid": uid},
+                    text("SELECT 1 FROM audit_log WHERE user_id::text = :uid AND event_type = 'reengagement_email' AND created_at > NOW() - INTERVAL '1 day' * :days LIMIT 1"),
+                    {"uid": uid, "days": REENGAGEMENT_EMAIL_RATE_LIMIT_DAYS},
                 ).first()
                 if not reengaged:
                     send_reengagement_email(u["email"], u.get("name", ""))
@@ -396,9 +473,139 @@ def check_dormant_accounts():
         db.close()
 
 
+@celery_app.task
+def check_activity_timers():
+    """Check for expired activity timers and trigger escalation if necessary."""
+    from db import log_escalation_event
+    from services.push_svc import send_push
+
+    db = _db()
+    try:
+        now_utc = datetime.now(timezone.utc)
+        rows = db.execute(
+            text(
+                "SELECT id, device_token, activity_timer_label FROM users "
+                "WHERE activity_timer_end IS NOT NULL "
+                "AND activity_timer_end < :now "
+                "AND is_dormant = FALSE"
+            ),
+            {"now": now_utc},
+        ).mappings().all()
+
+        for user in rows:
+            u = dict(user)
+            user_id = str(u["id"])
+            timer_label = u.get("activity_timer_label", "Activity")
+
+            # Check if user has already checked in today
+            if db.execute(
+                text(
+                    "SELECT 1 FROM checkins c WHERE c.user_id::text = :uid "
+                    "AND c.checked_in_at AT TIME ZONE 'UTC' >= NOW()::date LIMIT 1"
+                ),
+                {"uid": user_id},
+            ).first():
+                db.execute(
+                    text("UPDATE users SET activity_timer_end = NULL, activity_timer_label = NULL WHERE id::text = :uid"),
+                    {"uid": user_id},
+                )
+                db.commit()
+                continue
+
+            # Trigger escalation for missed activity timer
+            log_escalation_event(db, user_id, "activity_timer_expired")
+            if u.get("device_token"):
+                send_push(
+                    u["device_token"],
+                    "Activity Timer Expired",
+                    f"Your {timer_label} activity timer has expired. Please check in.",
+                    settings.base_url,
+                )
+
+            # Clear the timer
+            db.execute(
+                text("UPDATE users SET activity_timer_end = NULL, activity_timer_label = NULL WHERE id::text = :uid"),
+                {"uid": user_id},
+            )
+            db.commit()
+
+            # Schedule escalation chain
+            schedule_daily_checkin.delay(user_id)
+    finally:
+        db.close()
+
+
+@celery_app.task
+def check_dead_letters():
+    """Check for and send dead letter messages when users miss check-ins for N consecutive days."""
+    from db import get_unsent_dead_letters, get_days_since_last_checkin, get_contacts, mark_dead_letter_sent
+    from services.email_svc import _send_email
+
+    db = _db()
+    try:
+        # Get all users (we'll check each one's unsent dead letters)
+        rows = db.execute(
+            text("SELECT id FROM users WHERE is_dormant = FALSE"),
+        ).mappings().all()
+
+        for user_row in rows:
+            user_id = str(user_row["id"])
+            days_since = get_days_since_last_checkin(db, user_id)
+
+            # Get unsent dead letters for this user
+            dead_letters = get_unsent_dead_letters(db, user_id)
+
+            for letter in dead_letters:
+                # Check if enough days have passed
+                if days_since >= letter["trigger_days"]:
+                    try:
+                        # Get user info for email
+                        user_info = db.execute(
+                            text("SELECT name, email FROM users WHERE id::text = :uid"),
+                            {"uid": user_id},
+                        ).mappings().first()
+                        user_info = dict(user_info) if user_info else {}
+
+                        # Determine recipients
+                        recipients = []
+                        if letter["recipient_type"] == "contacts":
+                            # Send to all emergency contacts with email
+                            contacts = get_contacts(db, user_id)
+                            recipients = [c["email"] for c in contacts if c.get("email")]
+                        else:
+                            # Custom email recipient
+                            if letter["recipient_email"]:
+                                recipients = [letter["recipient_email"]]
+
+                        # Send email to each recipient
+                        for recipient_email in recipients:
+                            try:
+                                subject = letter["subject"]
+                                body_html = f"""
+<p>You are receiving this because {user_info.get('name', 'a user')} has not checked in for {days_since} days.</p>
+<p style="white-space: pre-wrap; margin: 20px 0;">{letter['body']}</p>
+<p style="opacity: 0.6; font-size: 12px;">This is a pre-written message from Still Here.</p>
+"""
+                                _send_email(recipient_email, subject, body_html)
+                            except Exception as e:
+                                logger.exception("Failed to send dead letter to %s for user %s", recipient_email, user_id)
+                                continue
+
+                        # Mark letter as sent
+                        mark_dead_letter_sent(db, str(letter["id"]))
+                    except Exception as e:
+                        logger.exception("Failed to process dead letter %s for user %s", str(letter["id"]), user_id)
+    finally:
+        db.close()
+
+
 celery_app.conf.beat_schedule = {
     "poll-every-minute": {
         "task": "tasks.escalation.poll_and_fire",
+        "schedule": crontab(minute="*"),
+    },
+    "activity-timer-check": {
+        "task": "tasks.escalation.check_activity_timers",
         "schedule": crontab(minute="*"),
     },
     "weekly-digest": {
@@ -412,5 +619,9 @@ celery_app.conf.beat_schedule = {
     "dormant-check": {
         "task": "tasks.escalation.check_dormant_accounts",
         "schedule": crontab(hour="3", minute="0"),
+    },
+    "check-dead-letters": {
+        "task": "tasks.escalation.check_dead_letters",
+        "schedule": crontab(hour="0", minute="0"),  # Daily at 00:00 UTC
     },
 }

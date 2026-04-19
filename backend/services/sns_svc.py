@@ -28,15 +28,46 @@ def send_sms(to: str, body: str) -> bool:
         logger.info(f"[SMS STUB] To: {to} | Body: {body}")
         return True
     try:
-        verification = client.verify.v2.services(
-            settings.twilio_verify_sid
-        ).verifications.create(to=to, channel="sms")
-        logger.info(f"Verify SMS sent to {to}: status={verification.status}")
+        message = client.messages.create(
+            to=to,
+            from_=settings.twilio_phone_number,
+            body=body,
+        )
+        logger.info(f"SMS sent to {to}: sid={message.sid}")
         return True
     except Exception as e:
-        logger.error(f"SMS failed: {e}")
+        logger.error(f"SMS failed to {to}: {e}")
         return False
 
 
-def send_sms_with_message(to: str, body: str) -> bool:
-    return send_sms(to, body)
+def call_contact(to: str, user_name: str) -> bool:
+    """Call an emergency contact with a voice message about a missed check-in."""
+    client = _get_twilio()
+    if client is None:
+        logger.info(f"[VOICE STUB] Would call {to} about {user_name}")
+        return True
+    try:
+        twiml = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            "<Response>"
+            "<Pause length=\"1\"/>"
+            "<Say voice=\"Polly.Joanna\">"
+            f"Hello. This is an urgent message from Still Here. "
+            f"{user_name} has missed their daily safety check-in "
+            "and we have been unable to reach them. "
+            "Please try to contact them and confirm their safety "
+            f"as soon as possible. Again, {user_name} has missed their check-in. "
+            "Please check on them. Thank you."
+            "</Say>"
+            "</Response>"
+        )
+        call = client.calls.create(
+            to=to,
+            from_=settings.twilio_phone_number,
+            twiml=twiml,
+        )
+        logger.info(f"Contact voice call placed: sid={call.sid}, to={to}")
+        return True
+    except Exception as e:
+        logger.error(f"Contact voice call failed to {to}: {e}")
+        return False

@@ -9,8 +9,9 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from pydantic import BaseModel, EmailStr
 
+from config import settings
 from limiter import limiter
-from routes import users, checkin, contacts, confirm, demo, mutual, groups, portal, family, webhooks, api_keys, stripe_payments, contact, netcore
+from routes import users, checkin, contacts, confirm, demo, mutual, groups, portal, family, webhooks, api_keys, stripe_payments, contact, netcore, safety, dead_letters
 
 app = FastAPI(title="Still Here", version="1.0.0")
 app.state.limiter = limiter
@@ -18,7 +19,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins.split(","),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -61,6 +62,8 @@ app.include_router(api_keys.router)
 app.include_router(stripe_payments.router)
 app.include_router(contact.router)
 app.include_router(netcore.router)
+app.include_router(safety.router)
+app.include_router(dead_letters.router)
 
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
 

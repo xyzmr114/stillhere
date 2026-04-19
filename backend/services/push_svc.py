@@ -25,7 +25,7 @@ def _get_firebase_app():
     return _firebase_app
 
 
-def _send_firebase(device_token: str, title: str, body: str, url: str = None) -> bool:
+def _send_firebase(device_token: str, title: str, body: str, url: str = None, data: dict = None) -> bool:
     app = _get_firebase_app()
     if app is None:
         logger.info(f"[PUSH STUB/firebase] {title}: {body} → {device_token[:12]}...")
@@ -35,12 +35,14 @@ def _send_firebase(device_token: str, title: str, body: str, url: str = None) ->
         webpush_config = None
         if url:
             webpush_config = messaging.WebpushConfig(
-                fcm_options=messaging.WebpushFCMOptions(link=url)
+                fcm_options=messaging.WebpushFCMOptions(link=url),
+                data=data or {},
             )
         msg = messaging.Message(
             notification=messaging.Notification(title=title, body=body),
             token=device_token,
             webpush=webpush_config,
+            data=data or {},
         )
         messaging.send(msg)
         logger.info(f"[firebase] Push sent to {device_token[:12]}...")
@@ -50,14 +52,17 @@ def _send_firebase(device_token: str, title: str, body: str, url: str = None) ->
         return False
 
 
-def _send_webpush(subscription_json: str, title: str, body: str, url: str = None) -> bool:
+def _send_webpush(subscription_json: str, title: str, body: str, url: str = None, data: dict = None) -> bool:
     if not settings.webpush_vapid_private_key or not settings.webpush_vapid_public_key:
         logger.info(f"[PUSH STUB/webpush] {title}: {body}")
         return True
     try:
         from pywebpush import webpush, WebPushException
         subscription = json.loads(subscription_json)
-        payload = json.dumps({"title": title, "body": body, "url": url or settings.base_url})
+        payload_obj = {"title": title, "body": body, "url": url or settings.base_url}
+        if data:
+            payload_obj.update(data)
+        payload = json.dumps(payload_obj)
         webpush(
             subscription_info=subscription,
             data=payload,
@@ -73,13 +78,13 @@ def _send_webpush(subscription_json: str, title: str, body: str, url: str = None
         return False
 
 
-def send_push(device_token: str, title: str, body: str, url: str = None) -> bool:
+def send_push(device_token: str, title: str, body: str, url: str = None, data: dict = None) -> bool:
     if not device_token:
         return False
     provider = settings.push_provider.lower()
     if provider == "webpush":
         if device_token.startswith("{"):
-            return _send_webpush(device_token, title, body, url)
+            return _send_webpush(device_token, title, body, url, data)
         logger.warning("push_provider=webpush but device_token looks like FCM token — skipping")
         return False
-    return _send_firebase(device_token, title, body, url)
+    return _send_firebase(device_token, title, body, url, data)

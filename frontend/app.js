@@ -105,7 +105,7 @@ function switchTab(tabName) {
     });
     if (tabName === "activity") loadActivity();
     if (tabName === "contacts") { loadGroups(); loadMutual(); }
-    if (tabName === "settings") { loadFamily(); loadSensors(); loadApiKeys(); loadNetcore(); }
+    if (tabName === "settings") { loadFamily(); loadSensors(); loadApiKeys(); loadNetcore(); loadDeadLetters(); }
 }
 
 function showToast(message, type) {
@@ -168,10 +168,13 @@ document.getElementById("register-btn").addEventListener("click", async () => {
         return;
     }
     try {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
         const data = await api("/users/register", {
             method: "POST",
             body: JSON.stringify({ email, name, password, phone, accepted_tos: true }),
         });
+        // Save user's detected timezone
+        try { await api("/users/me", { method: "PATCH", body: JSON.stringify({ timezone: tz }) }); } catch(_) {}
         setToken(data.token);
         await loadMain();
     } catch (e) {
@@ -309,6 +312,70 @@ document.getElementById("dry-run-btn").addEventListener("click", async () => {
     }
 });
 
+function loadNonEmergencyDisplay(phone, verified) {
+    const el = document.getElementById("ne-lookup-result");
+    if (!el) return;
+    document.getElementById("ne-phone").textContent = phone;
+    document.getElementById("ne-dept").textContent = verified ? "Verified" : "Saved (unverified)";
+    document.getElementById("ne-source").style.display = "none";
+    el.style.display = "";
+}
+
+document.getElementById("addr-lookup-btn").addEventListener("click", async () => {
+    const city = document.getElementById("addr-city").value.trim();
+    const state = document.getElementById("addr-state").value.trim();
+    const errEl = document.getElementById("addr-error");
+    errEl.textContent = "";
+    if (!city || !state) { errEl.textContent = "City and state are required for lookup"; return; }
+    try {
+        const data = await api("/safety/lookup-non-emergency", {
+            method: "POST",
+            body: JSON.stringify({ city, state }),
+        });
+        if (data.phone) {
+            document.getElementById("ne-phone").textContent = data.phone;
+            document.getElementById("ne-dept").textContent = data.department || city + " Non-Emergency";
+            const srcLink = document.getElementById("ne-source");
+            if (data.source_url) { srcLink.href = data.source_url; srcLink.style.display = ""; }
+            else { srcLink.style.display = "none"; }
+            document.getElementById("ne-lookup-result").style.display = "";
+        } else {
+            errEl.textContent = "No number found for " + city + ", " + state + ". You can enter one manually during save.";
+        }
+    } catch (e) {
+        errEl.textContent = e.message;
+    }
+});
+
+document.getElementById("addr-save-btn").addEventListener("click", async () => {
+    const address = document.getElementById("addr-street").value.trim();
+    const city = document.getElementById("addr-city").value.trim();
+    const state = document.getElementById("addr-state").value.trim();
+    const zip_code = document.getElementById("addr-zip").value.trim();
+    const errEl = document.getElementById("addr-error");
+    errEl.textContent = "";
+    if (!city || !state) { errEl.textContent = "City and state are required"; return; }
+    try {
+        await api("/users/me", {
+            method: "PATCH",
+            body: JSON.stringify({ address, city, state, zip_code }),
+        });
+        // Try to save non-emergency number if looked up
+        const nePhone = document.getElementById("ne-phone").textContent;
+        if (nePhone) {
+            try {
+                await api("/safety/save-address", {
+                    method: "POST",
+                    body: JSON.stringify({ address, city, state, zip_code, non_emergency_number: nePhone, verified: false }),
+                });
+            } catch (_) {}
+        }
+        showToast("Address saved", "success");
+    } catch (e) {
+        errEl.textContent = e.message;
+    }
+});
+
 document.getElementById("logout-btn").addEventListener("click", () => {
     clearToken();
     showScreen("auth");
@@ -318,17 +385,27 @@ document.getElementById("logout-btn").addEventListener("click", () => {
 let _countdownInterval = null;
 let _currentUser = null;
 
-function startCountdown(checkinTime) {
+function startCountdown(checkinTime, userTimezone) {
     if (_countdownInterval) clearInterval(_countdownInterval);
     const el = document.getElementById("stat-next");
     function update() {
         if (!checkinTime) { el.textContent = "--:--"; return; }
+        const tz = userTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
         const now = new Date();
+        // Get current date in user's timezone
+        const localDateStr = now.toLocaleDateString("en-CA", { timeZone: tz });
         const [h, m] = checkinTime.slice(0, 5).split(":").map(Number);
-        const target = new Date(now);
-        target.setUTCHours(h, m, 0, 0);
-        if (target <= now) target.setUTCDate(target.getUTCDate() + 1);
-        const diff = target - now;
+        // Build target as "YYYY-MM-DD HH:MM" in user's timezone
+        const targetStr = localDateStr + "T" + String(h).padStart(2,"0") + ":" + String(m).padStart(2,"0") + ":00";
+        // Parse in user's timezone by formatting back
+        const fmtOpts = { timeZone: tz, year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12: false };
+        // Simple approach: compute offset and adjust
+        const target = new Date(targetStr);
+        const nowInTz = new Date(now.toLocaleString("en-US", { timeZone: tz }));
+        const targetInTz = new Date(new Date().toLocaleString("en-US", { timeZone: tz }));
+        targetInTz.setHours(h, m, 0, 0);
+        if (targetInTz <= nowInTz) targetInTz.setDate(targetInTz.getDate() + 1);
+        const diff = targetInTz - nowInTz;
         const hrs = Math.floor(diff / 3600000);
         const mins = Math.floor((diff % 3600000) / 60000);
         el.textContent = hrs + "h " + mins + "m";
@@ -357,7 +434,24 @@ async function loadMain() {
     if (vacStartEl) vacStartEl.value = me.vacation_start ? utcToLocalInput(me.vacation_start) : "";
     if (vacEndEl) vacEndEl.value = me.vacation_end ? utcToLocalInput(me.vacation_end) : "";
     updateVacationStatus(me.vacation_start, me.vacation_end);
-    startCountdown(me.checkin_time);
+    startCountdown(me.checkin_time, me.timezone);
+
+    // Show timezone label
+    const tzLabel = document.getElementById("tz-label");
+    if (tzLabel) tzLabel.textContent = "(" + (me.timezone || "UTC") + ")";
+
+    // Load address fields
+    const addrStreet = document.getElementById("addr-street");
+    const addrCity = document.getElementById("addr-city");
+    const addrState = document.getElementById("addr-state");
+    const addrZip = document.getElementById("addr-zip");
+    if (addrStreet) addrStreet.value = me.address || "";
+    if (addrCity) addrCity.value = me.city || "";
+    if (addrState) addrState.value = me.state || "";
+    if (addrZip) addrZip.value = me.zip_code || "";
+    if (me.non_emergency_number) {
+        loadNonEmergencyDisplay(me.non_emergency_number, me.non_emergency_verified);
+    }
 
     maybeShowTosGate(me, () => {});
 
@@ -378,7 +472,7 @@ async function loadMain() {
         showToast("Payment confirmed! Welcome to Still Here. ✓", "success");
     }
 
-    await Promise.all([loadStatus(), loadStats(me), loadContacts(), loadBuddyStatus()]);
+    await Promise.all([loadStatus(), loadStats(me), loadContacts(), loadBuddyStatus(), loadActivityTimer()]);
     maybeShowOnboarding();
     maybeShowPushNudge();
     api("/checkin/prompt").then(d => {
@@ -1551,7 +1645,7 @@ async function nudgeRequestPush() {
 // ─── Onboarding ──────────────────────────────────────────────────────────────
 
 let _obStep = 1;
-const OB_TOTAL = 4;
+const OB_TOTAL = 5;
 
 function maybeShowOnboarding() {
     if (localStorage.getItem("onboarding_done")) return;
@@ -1566,7 +1660,7 @@ function obRender() {
     document.querySelectorAll(".onboarding-step").forEach(s => s.classList.remove("active"));
     const step = document.querySelector(`.onboarding-step[data-step="${_obStep}"]`);
     if (step) step.classList.add("active");
-    const pct = _obStep === 5 ? 100 : Math.round(((_obStep - 1) / OB_TOTAL) * 100);
+    const pct = _obStep === 6 ? 100 : Math.round(((_obStep - 1) / OB_TOTAL) * 100);
     document.getElementById("onboarding-progress-bar").style.width = pct + "%";
 }
 
@@ -1580,7 +1674,7 @@ function obBack() {
 }
 
 function obSkip() {
-    _obStep = 5;
+    _obStep = 6;
     document.getElementById("ob-done-contact").textContent = "— Add a contact in Settings when ready";
     document.getElementById("ob-done-notif").textContent = "— Enable notifications in Settings when ready";
     obRender();
@@ -1629,6 +1723,78 @@ async function obSaveContact() {
     }
 }
 
+let _obNeNumber = null;
+
+async function obLookupAddress() {
+    const city = document.getElementById("ob-city").value.trim();
+    const state = document.getElementById("ob-state").value.trim().toUpperCase();
+    const address = document.getElementById("ob-address").value.trim();
+    const zip = document.getElementById("ob-zip").value.trim();
+    const errEl = document.getElementById("ob-address-error");
+
+    if (!city || !state) { errEl.textContent = "City and state are required"; return; }
+    errEl.textContent = "";
+
+    try {
+        const data = await api("/safety/lookup-non-emergency", {
+            method: "POST",
+            body: JSON.stringify({ address, city, state, zip_code: zip }),
+        });
+        if (data.found) {
+            _obNeNumber = data.phone;
+            document.getElementById("ob-ne-phone").textContent = data.phone;
+            document.getElementById("ob-ne-dept").textContent = data.department || "";
+            const srcLink = document.getElementById("ob-ne-source");
+            if (data.source_url) { srcLink.href = data.source_url; srcLink.style.display = ""; }
+            else { srcLink.style.display = "none"; }
+            document.getElementById("ob-ne-result").style.display = "";
+            document.getElementById("ob-ne-notfound").style.display = "none";
+            document.getElementById("ob-ne-manual-group").style.display = "none";
+            document.getElementById("ob-ne-lookup-btn").style.display = "none";
+            document.getElementById("ob-ne-save-btn").style.display = "";
+        } else {
+            _obNeNumber = null;
+            document.getElementById("ob-ne-result").style.display = "none";
+            document.getElementById("ob-ne-notfound").style.display = "";
+            document.getElementById("ob-ne-manual-group").style.display = "";
+            const searchLink = document.getElementById("ob-ne-search-link");
+            if (data.help_links && data.help_links[0]) searchLink.href = data.help_links[0].url;
+            document.getElementById("ob-ne-lookup-btn").style.display = "none";
+            document.getElementById("ob-ne-save-btn").style.display = "";
+        }
+    } catch (e) {
+        errEl.textContent = e.message || "Lookup failed";
+    }
+}
+
+async function obSaveAddress() {
+    const address = document.getElementById("ob-address").value.trim();
+    const city = document.getElementById("ob-city").value.trim();
+    const state = document.getElementById("ob-state").value.trim().toUpperCase();
+    const zip = document.getElementById("ob-zip").value.trim();
+    const manual = document.getElementById("ob-ne-manual").value.trim();
+    const errEl = document.getElementById("ob-address-error");
+
+    const phone = _obNeNumber || manual;
+    if (!phone) { errEl.textContent = "A non-emergency number is required"; return; }
+    if (!phone.startsWith("+")) { errEl.textContent = "Number must start with + (e.g. +1...)"; return; }
+    errEl.textContent = "";
+
+    try {
+        await api("/safety/save-address", {
+            method: "POST",
+            body: JSON.stringify({
+                address, city, state, zip_code: zip,
+                non_emergency_number: phone,
+                verified: !!_obNeNumber,
+            }),
+        });
+        obNext();
+    } catch (e) {
+        errEl.textContent = e.message || "Save failed";
+    }
+}
+
 async function obRequestNotif() {
     const btn = document.getElementById("ob-notif-btn");
     btn.disabled = true;
@@ -1671,6 +1837,273 @@ function obFinish() {
 }
 
 // ─── End Onboarding ───────────────────────────────────────────────────────────
+
+// ─── Activity Timer ────────────────────────────────────────────────────────────
+
+let _activityTimerInterval = null;
+
+function formatTimerCountdown(seconds) {
+    if (seconds <= 0) return "00:00:00";
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    return [hours, minutes, secs]
+        .map(v => String(v).padStart(2, '0'))
+        .join(':');
+}
+
+async function loadActivityTimer() {
+    try {
+        const data = await api("/checkin/activity-timer");
+        const section = document.getElementById("activity-timer-section");
+        const display = document.getElementById("activity-timer-display");
+        const form = document.getElementById("activity-timer-form");
+
+        if (data.active) {
+            document.getElementById("activity-timer-label").textContent = data.timer_label || "Activity";
+            display.style.display = "";
+            form.style.display = "none";
+            section.style.display = "";
+
+            // Start countdown
+            if (_activityTimerInterval) clearInterval(_activityTimerInterval);
+            function updateCountdown() {
+                const remaining = data.time_remaining_seconds - (Date.now() - window._timerStartTime) / 1000;
+                if (remaining <= 0) {
+                    document.getElementById("activity-timer-countdown").textContent = "00:00:00";
+                    clearInterval(_activityTimerInterval);
+                } else {
+                    document.getElementById("activity-timer-countdown").textContent = formatTimerCountdown(remaining);
+                }
+            }
+            window._timerStartTime = Date.now();
+            updateCountdown();
+            _activityTimerInterval = setInterval(updateCountdown, 1000);
+        } else {
+            section.style.display = "";
+            display.style.display = "none";
+            form.style.display = "";
+            document.getElementById("timer-hours").value = "4";
+            document.getElementById("timer-label").value = "";
+            if (_activityTimerInterval) clearInterval(_activityTimerInterval);
+        }
+    } catch (e) {
+        document.getElementById("activity-timer-section").style.display = "";
+    }
+}
+
+document.getElementById("start-timer-btn").addEventListener("click", async () => {
+    const hours = parseFloat(document.getElementById("timer-hours").value);
+    const label = document.getElementById("timer-label").value.trim();
+
+    if (!hours || hours <= 0) {
+        showToast("Please enter valid hours", "error");
+        return;
+    }
+    if (!label) {
+        showToast("Please enter activity label", "error");
+        return;
+    }
+
+    try {
+        const btn = document.getElementById("start-timer-btn");
+        btn.disabled = true;
+        await api("/checkin/activity-timer", {
+            method: "POST",
+            body: JSON.stringify({ hours, label }),
+        });
+        showToast(`Activity timer started: ${label} in ${hours} hours`, "success");
+        await loadActivityTimer();
+    } catch (e) {
+        showToast(e.message, "error");
+    } finally {
+        document.getElementById("start-timer-btn").disabled = false;
+    }
+});
+
+document.getElementById("cancel-timer-btn").addEventListener("click", async () => {
+    try {
+        const btn = document.getElementById("cancel-timer-btn");
+        btn.disabled = true;
+        await api("/checkin/activity-timer", { method: "DELETE" });
+        showToast("Activity timer cancelled", "success");
+        await loadActivityTimer();
+    } catch (e) {
+        showToast(e.message, "error");
+    } finally {
+        document.getElementById("cancel-timer-btn").disabled = false;
+    }
+});
+
+// ─── Dead Letters ──────────────────────────────────────────────────────────────
+
+let _editingDeadLetterId = null;
+
+async function loadDeadLetters() {
+    try {
+        const letters = await api("/dead-letters");
+        const listDiv = document.getElementById("dead-letters-list");
+        listDiv.innerHTML = "";
+
+        if (!letters || letters.length === 0) {
+            listDiv.innerHTML = '<p style="opacity:0.6;font-size:13px;margin-bottom:16px">No dead letters yet.</p>';
+            return;
+        }
+
+        letters.forEach(letter => {
+            const card = document.createElement("div");
+            card.style.cssText = "margin-bottom:12px;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px";
+            const sentStatus = letter.sent_at
+                ? `<span style="color:rgba(78,204,163,0.7);font-size:12px">Sent on ${new Date(letter.sent_at).toLocaleDateString()}</span>`
+                : `<span style="color:rgba(255,193,7,0.7);font-size:12px">Unsent</span>`;
+            const recipientText = letter.recipient_type === "contacts"
+                ? "Emergency Contacts"
+                : `Email: ${esc(letter.recipient_email || "")}`;
+            card.innerHTML = `
+                <div style="margin-bottom:8px">
+                    <div style="font-weight:600;margin-bottom:4px">${esc(letter.subject)}</div>
+                    <div style="font-size:13px;opacity:0.7">${esc(letter.trigger_days)} days without check-in → ${recipientText}</div>
+                    ${sentStatus}
+                </div>
+                <div style="display:flex;gap:8px;font-size:13px">
+                    <button class="dead-letter-edit-btn" data-id="${esc(letter.id)}" style="background:rgba(100,150,255,0.2);border:1px solid rgba(100,150,255,0.3);color:#6496ff;padding:6px 12px;border-radius:4px;cursor:pointer;flex:1">Edit</button>
+                    <button class="dead-letter-delete-btn" data-id="${esc(letter.id)}" style="background:rgba(255,100,100,0.2);border:1px solid rgba(255,100,100,0.3);color:#ff6464;padding:6px 12px;border-radius:4px;cursor:pointer;flex:1">Delete</button>
+                </div>
+            `;
+            listDiv.appendChild(card);
+        });
+
+        // Add event listeners
+        document.querySelectorAll(".dead-letter-edit-btn").forEach(btn => {
+            btn.addEventListener("click", () => editDeadLetter(btn.dataset.id));
+        });
+        document.querySelectorAll(".dead-letter-delete-btn").forEach(btn => {
+            btn.addEventListener("click", () => deleteDeadLetter(btn.dataset.id));
+        });
+    } catch (e) {
+        console.error("Failed to load dead letters:", e);
+    }
+}
+
+function showDeadLetterForm(edit = false) {
+    const form = document.getElementById("dead-letter-form");
+    form.style.display = edit ? "block" : "block";
+    if (!edit) {
+        document.getElementById("dl-subject").value = "";
+        document.getElementById("dl-body").value = "";
+        document.getElementById("dl-days").value = "30";
+        document.getElementById("dl-recipient-type").value = "contacts";
+        document.getElementById("dl-email").value = "";
+        document.getElementById("dl-email").style.display = "none";
+        _editingDeadLetterId = null;
+    }
+}
+
+function hideDeadLetterForm() {
+    document.getElementById("dead-letter-form").style.display = "none";
+    _editingDeadLetterId = null;
+}
+
+async function editDeadLetter(id) {
+    try {
+        const letter = await api(`/dead-letters/${id}`);
+        _editingDeadLetterId = id;
+        document.getElementById("dl-subject").value = letter.subject;
+        document.getElementById("dl-body").value = letter.body;
+        document.getElementById("dl-days").value = letter.trigger_days;
+        document.getElementById("dl-recipient-type").value = letter.recipient_type;
+        if (letter.recipient_type === "email") {
+            document.getElementById("dl-email").value = letter.recipient_email || "";
+            document.getElementById("dl-email").style.display = "block";
+        } else {
+            document.getElementById("dl-email").style.display = "none";
+        }
+        showDeadLetterForm(true);
+    } catch (e) {
+        showToast(e.message, "error");
+    }
+}
+
+async function saveDeadLetter() {
+    const subject = document.getElementById("dl-subject").value.trim();
+    const body = document.getElementById("dl-body").value.trim();
+    const days = parseInt(document.getElementById("dl-days").value);
+    const recipientType = document.getElementById("dl-recipient-type").value;
+    const email = document.getElementById("dl-email").value.trim();
+
+    if (!subject || !body) {
+        showToast("Subject and message are required", "error");
+        return;
+    }
+    if (isNaN(days) || days < 7 || days > 365) {
+        showToast("Days must be between 7 and 365", "error");
+        return;
+    }
+    if (recipientType === "email" && !email) {
+        showToast("Email is required for email recipient type", "error");
+        return;
+    }
+
+    const payload = {
+        subject,
+        body,
+        trigger_days: days,
+        recipient_type: recipientType,
+        recipient_email: recipientType === "email" ? email : null,
+    };
+
+    try {
+        const btn = document.getElementById("dl-save-btn");
+        btn.disabled = true;
+
+        if (_editingDeadLetterId) {
+            await api(`/dead-letters/${_editingDeadLetterId}`, {
+                method: "PATCH",
+                body: JSON.stringify(payload),
+            });
+            showToast("Dead letter updated", "success");
+        } else {
+            await api("/dead-letters", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            });
+            showToast("Dead letter created", "success");
+        }
+
+        hideDeadLetterForm();
+        await loadDeadLetters();
+    } catch (e) {
+        showToast(e.message, "error");
+    } finally {
+        document.getElementById("dl-save-btn").disabled = false;
+    }
+}
+
+async function deleteDeadLetter(id) {
+    if (!confirm("Delete this dead letter?")) return;
+    try {
+        await api(`/dead-letters/${id}`, { method: "DELETE" });
+        showToast("Dead letter deleted", "success");
+        await loadDeadLetters();
+    } catch (e) {
+        showToast(e.message, "error");
+    }
+}
+
+document.getElementById("add-dead-letter-btn").addEventListener("click", () => {
+    showDeadLetterForm(false);
+});
+
+document.getElementById("dl-cancel-btn").addEventListener("click", hideDeadLetterForm);
+
+document.getElementById("dl-save-btn").addEventListener("click", saveDeadLetter);
+
+document.getElementById("dl-recipient-type").addEventListener("change", (e) => {
+    const emailInput = document.getElementById("dl-email");
+    emailInput.style.display = e.target.value === "email" ? "block" : "none";
+});
+
+// ─── End Activity Timer ────────────────────────────────────────────────────────
 
 (async function init() {
     if (getToken()) {

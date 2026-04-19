@@ -74,6 +74,23 @@ netcore/nc.db*
 # Hackathon / internal notes
 JUDGING.md
 
+# Runtime data
+devices.db
+sessions/
+state/
+memory/
+
+# Internal agent/planning docs (not for public repo)
+.agents/
+HEARTBEAT.md
+IDENTITY.md
+MEMORY.md
+SHIELD.md
+SOUL.md
+TOOLS.md
+USER.md
+skills-lock.json
+
 # Stray root duplicates
 /consent.html
 /contact.html

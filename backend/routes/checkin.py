@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -9,6 +9,7 @@ from sqlalchemy import text
 from db import get_session, has_checked_in_today, log_checkin, get_today_checkin
 from dependencies import get_current_user
 from api_key_auth import get_api_key_user, get_optional_user
+from auth import decode_jwt
 
 router = APIRouter(prefix="/checkin", tags=["checkin"])
 
@@ -28,6 +29,15 @@ class CheckinRequest(BaseModel):
 
 class NoteRequest(BaseModel):
     note: str
+
+
+class QuickCheckinRequest(BaseModel):
+    token: str
+
+
+class ActivityTimerRequest(BaseModel):
+    hours: float
+    label: str
 
 
 @router.post("")
@@ -146,3 +156,134 @@ def annual_report(user=Depends(get_current_user), db=Depends(get_session)):
     from db import get_annual_report
     report = get_annual_report(db, str(user["id"]))
     return report
+
+
+@router.post("/quick")
+def quick_checkin(request: QuickCheckinRequest, db=Depends(get_session)):
+    """One-tap check-in from push notification action using quick-checkin token."""
+    try:
+        payload = decode_jwt(request.token)
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        token_type = payload.get("type")
+        if token_type != "quick_checkin":
+            raise HTTPException(status_code=401, detail="Invalid token type")
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Token expired or invalid")
+
+    if has_checked_in_today(db, user_id):
+        return {"status": "already_checked_in", "message": "You're already checked in today!"}
+
+    log_checkin(db, user_id, method="push_action")
+    from db import log_audit_event, resolve_escalations
+    log_audit_event(db, user_id, "checkin", {"method": "push_action"})
+    resolve_escalations(db, user_id)
+    return {"status": "checked_in", "message": "Still Here ✓"}
+
+
+@router.post("/activity-timer")
+def set_activity_timer(
+    request: ActivityTimerRequest,
+    user=Depends(get_current_user),
+    db=Depends(get_session),
+):
+    """Set an activity-based safety timer (e.g., 'hiking in 4 hours')."""
+    if request.hours <= 0:
+        raise HTTPException(status_code=400, detail="Hours must be positive")
+    if request.hours > 168:
+        raise HTTPException(status_code=400, detail="Timer cannot exceed 7 days")
+    if len(request.label.strip()) == 0 or len(request.label) > 100:
+        raise HTTPException(status_code=400, detail="Label must be 1-100 characters")
+
+    user_id = str(user["id"])
+    timer_end = datetime.now(timezone.utc) + timedelta(hours=request.hours)
+
+    db.execute(
+        text(
+            "UPDATE users SET activity_timer_end = :end, activity_timer_label = :label WHERE id::text = :uid"
+        ),
+        {"uid": user_id, "end": timer_end, "label": request.label},
+    )
+    db.commit()
+
+    from db import log_audit_event
+    log_audit_event(db, user_id, "activity_timer_start", {
+        "hours": request.hours,
+        "label": request.label,
+    })
+
+    return {
+        "status": "timer_set",
+        "message": f"Activity timer set: {request.label} in {request.hours} hours",
+        "timer_end": timer_end.isoformat(),
+    }
+
+
+@router.delete("/activity-timer")
+def cancel_activity_timer(
+    user=Depends(get_current_user),
+    db=Depends(get_session),
+):
+    """Cancel an active activity timer."""
+    user_id = str(user["id"])
+
+    db.execute(
+        text(
+            "UPDATE users SET activity_timer_end = NULL, activity_timer_label = NULL WHERE id::text = :uid"
+        ),
+        {"uid": user_id},
+    )
+    db.commit()
+
+    from db import log_audit_event
+    log_audit_event(db, user_id, "activity_timer_cancel", {})
+
+    return {"status": "timer_cancelled", "message": "Activity timer cancelled"}
+
+
+@router.get("/activity-timer")
+def get_activity_timer(
+    user=Depends(get_current_user),
+    db=Depends(get_session),
+):
+    """Get current activity timer status."""
+    user_id = str(user["id"])
+    row = db.execute(
+        text(
+            "SELECT activity_timer_end, activity_timer_label FROM users WHERE id::text = :uid"
+        ),
+        {"uid": user_id},
+    ).mappings().first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    r = dict(row)
+    timer_end = r.get("activity_timer_end")
+    timer_label = r.get("activity_timer_label")
+
+    if not timer_end:
+        return {
+            "active": False,
+            "timer_end": None,
+            "timer_label": None,
+            "time_remaining_seconds": None,
+        }
+
+    now = datetime.now(timezone.utc)
+    if timer_end <= now:
+        return {
+            "active": False,
+            "timer_end": timer_end.isoformat() if timer_end else None,
+            "timer_label": timer_label,
+            "time_remaining_seconds": 0,
+        }
+
+    remaining = (timer_end - now).total_seconds()
+    return {
+        "active": True,
+        "timer_end": timer_end.isoformat(),
+        "timer_label": timer_label,
+        "time_remaining_seconds": remaining,
+    }

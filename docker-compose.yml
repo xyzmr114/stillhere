@@ -6,7 +6,7 @@ services:
     container_name: stillhere-api
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     env_file: .env
     environment:
       - REDIS_URL=redis://redis:6379
@@ -63,6 +63,12 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A tasks.escalation inspect ping || exit 1"]
+      interval: 60s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
     labels:
       - "autoheal=true"
     command: celery -A tasks.escalation beat --loglevel=info
@@ -72,7 +78,7 @@ services:
     container_name: stillhere-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
