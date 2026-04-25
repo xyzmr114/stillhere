@@ -44,6 +44,7 @@ def poll_and_fire():
                 "SELECT * FROM users "
                 "WHERE checkin_time = (NOW() AT TIME ZONE COALESCE(timezone, 'UTC'))::time(0) "
                 "AND is_dormant = FALSE "
+                "AND email_verified = TRUE "
                 "AND (has_paid = TRUE OR trial_ends_at > NOW())"
             ),
         ).mappings().all()
@@ -101,11 +102,14 @@ def schedule_daily_checkin(user_id: str):
         user = db.execute(
             text("SELECT grace_minutes, confirm_by_minutes, device_token, "
                  "notify_push, notify_email, notify_sms, "
-                 "quiet_hours_start, quiet_hours_end, timezone, token_version "
+                 "quiet_hours_start, quiet_hours_end, timezone, token_version, "
+                 "email_verified "
                  "FROM users WHERE id::text = :uid"),
             {"uid": user_id},
         ).mappings().first()
         u = dict(user) if user else {}
+        if not u.get("email_verified"):
+            return  # unverified accounts cannot trigger escalation
         grace = u.get("grace_minutes", DEFAULT_GRACE_MINUTES)
         confirm_by = u.get("confirm_by_minutes", 0) or 0
         total_grace = grace + confirm_by

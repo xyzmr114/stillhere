@@ -864,12 +864,6 @@ function timeAgo(iso) {
     });
 });
 
-["reg-name", "reg-email", "reg-phone", "reg-password"].forEach((id) => {
-    document.getElementById(id).addEventListener("keydown", (e) => {
-        if (e.key === "Enter") document.getElementById("register-btn").click();
-    });
-});
-
 document.querySelectorAll(".snooze-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {
         const hours = parseInt(btn.dataset.hours);
