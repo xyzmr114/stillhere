@@ -2221,5 +2221,10 @@ document.getElementById("dl-recipient-type").addEventListener("change", (e) => {
         }
     } else {
         showScreen("auth");
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("verified") === "1") {
+            window.history.replaceState({}, document.title, "/signin");
+            showToast("Email verified! You can now log in.", "success");
+        }
     }
 })();
