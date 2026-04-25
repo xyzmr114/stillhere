@@ -93,7 +93,7 @@ Mobile: Capacitor (iOS + Android — wraps existing frontend, no rewrite)
 - [x] Clean dead JS listeners — `app.js` still attaches handlers to `#reg-name`, `#reg-email` etc. from removed register form. Silent exceptions on every page load
 
 ### High — before launch
-- [ ] Escalation resolved notice to contacts — contact gets scary "missed check-in" alert, user checks in, contact never hears back
+- [x] Escalation resolved notice to contacts — contact gets scary "missed check-in" alert, user checks in, contact never hears back ✅
 - [ ] `/signin?verified=1` shows no feedback — email verification redirect lands silently
 - [ ] Email change support — no `email` field in `UserPatch`, users can't update their email
 - [ ] Account deletion confirmation email + notice to contacts
