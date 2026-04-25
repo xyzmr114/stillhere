@@ -22,6 +22,9 @@ services:
       retries: 3
     labels:
       - "autoheal=true"
+    networks:
+      - default
+      - authelia
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2
 
   worker:
@@ -101,6 +104,12 @@ services:
       - AUTOHEAL_CONTAINER_LABEL=autoheal
       - AUTOHEAL_INTERVAL=30
       - AUTOHEAL_START_PERIOD=60
+
+networks:
+  default:
+  authelia:
+    external: true
+    name: authelia_default
 
 volumes:
   redis-data:

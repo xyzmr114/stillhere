@@ -54,7 +54,7 @@ _SMTP_PRESETS = {
     "mailjet":  {"host": "in-v3.mailjet.com",      "port": 587, "ssl": False, "tls": True},
     "sendgrid": {"host": "smtp.sendgrid.net",      "port": 587, "ssl": False, "tls": True},
     "zoho":     {"host": "smtp.zoho.com",          "port": 587, "ssl": False, "tls": True},
-    "cpanel":   {"host": "mail.yourdomain.com",    "port": 587, "ssl": False, "tls": True},
+    "cpanel":   {"host": "mail.stillherehq.com",    "port": 587, "ssl": False, "tls": True},
     "local":    {"host": "localhost",              "port": 25,  "ssl": False, "tls": False},
 }
 
@@ -152,6 +152,25 @@ def send_checkin_email(to_email: str, user_name: str, user_id: str):
 def send_welcome_email(to_email: str, user_name: str):
     html = welcome(user_name)
     return _send_email(to_email, "Welcome to Still Here — you're set up", html)
+
+
+def send_payment_confirmation_email(to_email: str, user_name: str):
+    from email_templates import payment_confirmation
+    html = payment_confirmation(user_name, to_email)
+    return _send_email(to_email, "Payment confirmed — Still Here is yours", html)
+
+
+def send_trial_expiring_email(to_email: str, user_name: str, days_left: int):
+    from email_templates import trial_expiring
+    html = trial_expiring(user_name, days_left)
+    subject = "Your Still Here trial ends tomorrow" if days_left <= 1 else f"Your Still Here trial ends in {days_left} days"
+    return _send_email(to_email, subject, html)
+
+
+def send_trial_expired_email(to_email: str, user_name: str):
+    from email_templates import trial_expired
+    html = trial_expired(user_name)
+    return _send_email(to_email, "Your Still Here trial has ended", html)
 
 
 def send_contact_welcome_email(to_email: str, contact_name: str, user_name: str, portal_token: str):

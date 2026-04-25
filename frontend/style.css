@@ -82,26 +82,87 @@ body {
 
 #auth-screen {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     min-height: 100vh;
     min-height: 100dvh;
     padding: 0 20px;
+    position: relative;
 }
 
-#login-form,
-#register-form {
+#auth-screen::before {
+    content: '';
+    position: fixed;
+    top: -30%;
+    left: -15%;
+    width: 70%;
+    height: 70%;
+    background: radial-gradient(ellipse, rgba(233, 69, 96, 0.14) 0%, transparent 65%);
+    pointer-events: none;
+    z-index: 0;
+    animation: auth-glow-drift 8s ease-in-out infinite alternate;
+}
+
+#auth-screen::after {
+    content: '';
+    position: fixed;
+    bottom: -25%;
+    right: -15%;
+    width: 55%;
+    height: 55%;
+    background: radial-gradient(ellipse, rgba(78, 204, 163, 0.08) 0%, transparent 65%);
+    pointer-events: none;
+    z-index: 0;
+    animation: auth-glow-drift 10s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes auth-glow-drift {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(3%, 2%) scale(1.05); }
+}
+
+.auth-brand {
+    text-align: center;
+    margin-bottom: 40px;
+    position: relative;
+    z-index: 1;
+}
+
+.auth-brand-name {
+    font-size: 42px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -1.5px;
+    margin-bottom: 8px;
+    line-height: 1;
+}
+
+.auth-brand-name span {
+    color: var(--accent);
+}
+
+.auth-brand-tag {
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-weight: 400;
+    letter-spacing: 0.5px;
+}
+
+#login-form {
     width: 100%;
     max-width: 380px;
-    padding: 36px 32px;
-    background: var(--surface);
+    padding: 40px 32px;
+    background: linear-gradient(135deg, var(--surface) 0%, rgba(30, 30, 50, 0.9) 100%);
     border: 1px solid var(--border);
     border-radius: 24px;
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-lg), 0 0 60px -10px rgba(233, 69, 96, 0.1), inset 0 1px 0 rgba(255,255,255,0.03);
+    position: relative;
+    z-index: 1;
+    backdrop-filter: blur(20px);
 }
 
-#login-form h2,
-#register-form h2 {
+#login-form h2 {
     font-size: 22px;
     font-weight: 700;
     color: var(--text);
@@ -117,6 +178,59 @@ body {
     font-size: 14px;
     margin-bottom: 28px;
     font-weight: 400;
+}
+
+.auth-footer {
+    margin-top: 32px;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+}
+
+.auth-footer-links {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.auth-footer-links a {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.15s;
+}
+
+.auth-footer-links a:hover {
+    color: var(--text-secondary);
+}
+
+.auth-footer-copy {
+    font-size: 11px;
+    color: var(--text-muted);
+    opacity: 0.5;
+}
+
+.auth-signup-cta {
+    display: inline-block;
+    margin-top: 16px;
+    padding: 12px 32px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    text-decoration: none;
+    transition: all 0.25s ease;
+    background: linear-gradient(135deg, var(--accent) 0%, #c0354a 100%);
+    box-shadow: 0 4px 20px rgba(233, 69, 96, 0.25);
+    letter-spacing: 0.2px;
+}
+
+.auth-signup-cta:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(233, 69, 96, 0.35);
 }
 
 h2 {
@@ -2171,5 +2285,71 @@ label input { margin-top: 8px; }
 
 .btn-danger:hover {
     background: #d13b55;
+}
+
+/* ─── Toggle Switch ────────────────────────────────────────────────────── */
+.toggle-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    padding: 10px 0;
+    font-size: 14px;
+}
+.toggle-label input[type="checkbox"] {
+    display: none;
+}
+.toggle-slider {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 12px;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+.toggle-slider::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    background: rgba(255,255,255,0.4);
+    border-radius: 50%;
+    transition: transform 0.2s, background 0.2s;
+}
+.toggle-label input:checked + .toggle-slider {
+    background: rgba(78,204,163,0.3);
+}
+.toggle-label input:checked + .toggle-slider::after {
+    transform: translateX(20px);
+    background: #4ecca3;
+}
+
+/* ─── Contact Drag Handle ──────────────────────────────────────────────── */
+.contact-drag-handle {
+    cursor: grab;
+    padding: 0 8px;
+    opacity: 0.3;
+    font-size: 16px;
+    user-select: none;
+    display: flex;
+    align-items: center;
+}
+.contact-drag-handle:active {
+    cursor: grabbing;
+}
+.contact-card.dragging {
+    opacity: 0.4;
+    border: 1px dashed rgba(78,204,163,0.4);
+}
+.contact-card.drag-over {
+    border-top: 2px solid #4ecca3;
+}
+.contact-priority-badge {
+    font-size: 11px;
+    opacity: 0.4;
+    margin-top: 2px;
 }
 .hcl-future { background: rgba(255,255,255,0.08); }

@@ -43,7 +43,8 @@ def poll_and_fire():
             text(
                 "SELECT * FROM users "
                 "WHERE checkin_time = (NOW() AT TIME ZONE COALESCE(timezone, 'UTC'))::time(0) "
-                "AND is_dormant = FALSE"
+                "AND is_dormant = FALSE "
+                "AND (has_paid = TRUE OR trial_ends_at > NOW())"
             ),
         ).mappings().all()
         for user in rows:
@@ -70,6 +71,25 @@ def poll_and_fire():
         db.close()
 
 
+def _is_quiet_hours(user_dict: dict) -> bool:
+    """Check if the current time in user's timezone falls within their quiet hours."""
+    qh_start = user_dict.get("quiet_hours_start")
+    qh_end = user_dict.get("quiet_hours_end")
+    if not qh_start or not qh_end:
+        return False
+    from zoneinfo import ZoneInfo
+    user_tz_name = user_dict.get("timezone") or "UTC"
+    try:
+        user_tz = ZoneInfo(user_tz_name)
+    except (KeyError, Exception):
+        user_tz = ZoneInfo("UTC")
+    now_local = datetime.now(timezone.utc).astimezone(user_tz).time()
+    if qh_start <= qh_end:
+        return qh_start <= now_local <= qh_end
+    # Wraps midnight (e.g. 22:00 - 07:00)
+    return now_local >= qh_start or now_local <= qh_end
+
+
 @celery_app.task
 def schedule_daily_checkin(user_id: str):
     from db import log_escalation_event, get_random_checkin_message
@@ -79,21 +99,25 @@ def schedule_daily_checkin(user_id: str):
     db = _db()
     try:
         user = db.execute(
-            text("SELECT grace_minutes, confirm_by_minutes, device_token FROM users WHERE id::text = :uid"),
+            text("SELECT grace_minutes, confirm_by_minutes, device_token, "
+                 "notify_push, notify_email, notify_sms, "
+                 "quiet_hours_start, quiet_hours_end, timezone, token_version "
+                 "FROM users WHERE id::text = :uid"),
             {"uid": user_id},
         ).mappings().first()
         u = dict(user) if user else {}
         grace = u.get("grace_minutes", DEFAULT_GRACE_MINUTES)
         confirm_by = u.get("confirm_by_minutes", 0) or 0
         total_grace = grace + confirm_by
+        quiet = _is_quiet_hours(u)
         msg = get_random_checkin_message(db)
-        if u.get("device_token"):
+        push_enabled = u.get("notify_push", True) is not False
+        if u.get("device_token") and push_enabled and not quiet:
             from db import get_random_prompt
             prompt = get_random_prompt(db)
             push_body = f"{msg}" if not prompt else f"{msg}\n💡 {prompt}"
             # Generate quick-checkin token (1 hour expiry)
-            quick_token = create_jwt(user_id)
-            # Add type to token payload for validation
+            quick_token = create_jwt(user_id, token_version=u.get("token_version", 1))
             from jose import jwt
             payload = jwt.decode(quick_token, settings.jwt_secret, algorithms=["HS256"])
             payload["type"] = "quick_checkin"
@@ -102,15 +126,19 @@ def schedule_daily_checkin(user_id: str):
             push_data = {"quick_checkin_token": quick_token}
             send_push(u["device_token"], "Still Here", push_body, settings.base_url, data=push_data)
         event_id = log_escalation_event(db, user_id, "checkin_requested")
-        user_row = db.execute(
-            text("SELECT email, name FROM users WHERE id::text = :uid"),
-            {"uid": user_id},
-        ).mappings().first()
-        if user_row:
-            u = dict(user_row)
-            from services.email_svc import send_checkin_email
-            send_checkin_email(u["email"], u.get("name", ""), user_id)
-        sms_to_user.apply_async(args=[user_id], countdown=SMS_DELAY_SECONDS)
+        email_enabled = u.get("notify_email", True) is not False
+        if email_enabled and not quiet:
+            user_row = db.execute(
+                text("SELECT email, name FROM users WHERE id::text = :uid"),
+                {"uid": user_id},
+            ).mappings().first()
+            if user_row:
+                ur = dict(user_row)
+                from services.email_svc import send_checkin_email
+                send_checkin_email(ur["email"], ur.get("name", ""), user_id)
+        sms_enabled = u.get("notify_sms", True) is not False
+        if sms_enabled:
+            sms_to_user.apply_async(args=[user_id], countdown=SMS_DELAY_SECONDS)
         check_user_grace.apply_async(args=[user_id, str(event_id)], countdown=total_grace * 60)
     finally:
         db.close()
@@ -126,7 +154,7 @@ def sms_to_user(user_id: str):
         if has_checked_in_today(db, user_id):
             return
         user = db.execute(
-            text("SELECT phone, name FROM users WHERE id::text = :uid"),
+            text("SELECT phone, name, notify_sms, quiet_hours_start, quiet_hours_end, timezone FROM users WHERE id::text = :uid"),
             {"uid": user_id},
         ).mappings().first()
         if not user:
@@ -134,7 +162,11 @@ def sms_to_user(user_id: str):
         u = dict(user)
         if not u.get("phone"):
             return
-        checkin_url = f"{settings.base_url}/app"
+        if u.get("notify_sms", True) is False:
+            return
+        if _is_quiet_hours(u):
+            return
+        checkin_url = f"{settings.base_url}/signin"
         send_sms(
             u["phone"],
             f"Hey {u.get('name', 'there')}, you haven't checked in yet today. "
@@ -375,7 +407,7 @@ def send_weekly_digest():
         now = datetime.now(timezone.utc)
         week_ago = now - timedelta(days=7)
         rows = db.execute(
-            text("SELECT id, email, name FROM users WHERE created_at < :week_ago"),
+            text("SELECT id, email, name FROM users WHERE created_at < :week_ago AND (notify_weekly_digest IS NULL OR notify_weekly_digest = TRUE)"),
             {"week_ago": week_ago},
         ).mappings().all()
         for user in rows:
@@ -599,6 +631,51 @@ def check_dead_letters():
         db.close()
 
 
+@celery_app.task
+def check_trial_expiry():
+    """Send trial expiring/expired emails. Runs daily."""
+    import logging
+    logger = logging.getLogger(__name__)
+    db = _db()
+    try:
+        # Users whose trial expires in 1 or 2 days (not yet expired, not paid)
+        expiring = db.execute(
+            text(
+                "SELECT id, email, name, trial_ends_at FROM users "
+                "WHERE has_paid = FALSE AND trial_ends_at IS NOT NULL "
+                "AND trial_ends_at > NOW() "
+                "AND trial_ends_at <= NOW() + INTERVAL '2 days'"
+            ),
+        ).mappings().all()
+        for u in expiring:
+            days_left = max(1, (u["trial_ends_at"] - datetime.now(timezone.utc)).days)
+            try:
+                from services.email_svc import send_trial_expiring_email
+                send_trial_expiring_email(u["email"], u["name"] or "there", days_left)
+                logger.info("Sent trial expiring email to user=%s days_left=%d", u["id"], days_left)
+            except Exception:
+                logger.exception("Failed trial expiring email for user=%s", u["id"])
+
+        # Users whose trial expired today (within last 24h, not paid)
+        expired = db.execute(
+            text(
+                "SELECT id, email, name FROM users "
+                "WHERE has_paid = FALSE AND trial_ends_at IS NOT NULL "
+                "AND trial_ends_at <= NOW() "
+                "AND trial_ends_at > NOW() - INTERVAL '1 day'"
+            ),
+        ).mappings().all()
+        for u in expired:
+            try:
+                from services.email_svc import send_trial_expired_email
+                send_trial_expired_email(u["email"], u["name"] or "there")
+                logger.info("Sent trial expired email to user=%s", u["id"])
+            except Exception:
+                logger.exception("Failed trial expired email for user=%s", u["id"])
+    finally:
+        db.close()
+
+
 celery_app.conf.beat_schedule = {
     "poll-every-minute": {
         "task": "tasks.escalation.poll_and_fire",
@@ -622,6 +699,10 @@ celery_app.conf.beat_schedule = {
     },
     "check-dead-letters": {
         "task": "tasks.escalation.check_dead_letters",
-        "schedule": crontab(hour="0", minute="0"),  # Daily at 00:00 UTC
+        "schedule": crontab(hour="0", minute="0"),
+    },
+    "check-trial-expiry": {
+        "task": "tasks.escalation.check_trial_expiry",
+        "schedule": crontab(hour="10", minute="0"),
     },
 }

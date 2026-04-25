@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
@@ -13,6 +13,9 @@ from config import settings
 from limiter import limiter
 from routes import users, checkin, contacts, confirm, demo, mutual, groups, portal, family, webhooks, api_keys, stripe_payments, contact, netcore, safety, dead_letters
 
+if not settings.jwt_secret:
+    raise RuntimeError("JWT_SECRET is not set — refusing to start with an empty secret")
+
 app = FastAPI(title="Still Here", version="1.0.0")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -21,8 +24,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins.split(","),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key"],
 )
 
 @app.middleware("http")
@@ -130,9 +133,17 @@ def serve_landing():
     return FileResponse(FRONTEND / "landing.html")
 
 
-@app.get("/app")
-def serve_app():
+@app.get("/signin")
+def serve_signin():
     return FileResponse(FRONTEND / "index.html")
+
+
+@app.get("/app")
+def legacy_app_redirect(request: Request):
+    from fastapi.responses import RedirectResponse
+    qs = str(request.url.query)
+    target = "/signin" + ("?" + qs if qs else "")
+    return RedirectResponse(target, status_code=301)
 
 
 @app.get("/reset-password")
@@ -154,6 +165,11 @@ def serve_terms():
 def buy_redirect():
     from fastapi.responses import RedirectResponse
     return RedirectResponse("/stripe/buy")
+
+
+@app.get("/signup")
+def serve_signup():
+    return FileResponse(FRONTEND / "signup.html")
 
 
 @app.get("/consent")

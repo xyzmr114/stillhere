@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from typing import Optional
 
@@ -10,6 +10,7 @@ from db import (
     get_user_non_emergency_number,
 )
 from dependencies import get_current_user
+from limiter import limiter
 
 router = APIRouter(prefix="/safety", tags=["safety"])
 
@@ -35,7 +36,8 @@ class SearchIn(BaseModel):
 
 
 @router.post("/lookup-non-emergency")
-def lookup(body: AddressIn, user=Depends(get_current_user), db=Depends(get_session)):
+@limiter.limit("15/minute")
+def lookup(request: Request, body: AddressIn, user=Depends(get_current_user), db=Depends(get_session)):
     """
     Look up the non-emergency number for a user's city/state.
     Returns the number if found, or null with a help link.

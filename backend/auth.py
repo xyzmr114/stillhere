@@ -14,11 +14,12 @@ def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
-def create_jwt(user_id: str) -> str:
+def create_jwt(user_id: str, token_version: int = 1) -> str:
     payload = {
         "sub": user_id,
         "exp": datetime.now(timezone.utc) + timedelta(days=7),
         "iat": datetime.now(timezone.utc),
+        "ver": token_version,
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 

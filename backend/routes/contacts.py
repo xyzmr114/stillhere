@@ -1,10 +1,11 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from db import get_session, get_contacts, add_contact, update_contact, delete_contact, create_portal_token
 from dependencies import get_current_user
+from limiter import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +32,20 @@ def list_contacts(user=Depends(get_current_user), db=Depends(get_session)):
 
 
 @router.post("")
-def create_contact(body: ContactIn, user=Depends(get_current_user), db=Depends(get_session)):
+@limiter.limit("10/minute")
+def create_contact(request: Request, body: ContactIn, user=Depends(get_current_user), db=Depends(get_session)):
+    # Auto-assign next priority if not explicitly set
+    priority = body.priority
+    if priority == 1:
+        existing = get_contacts(db, str(user["id"]))
+        priority = len(existing) + 1
     cid = add_contact(
         db,
         str(user["id"]),
         body.name,
         body.phone,
         body.email,
-        body.priority,
+        priority,
     )
     portal_token = create_portal_token(db, cid)
     if body.email:
@@ -63,6 +70,18 @@ def patch_contact(contact_id: str, body: ContactPatch, user=Depends(get_current_
 def remove_contact(contact_id: str, user=Depends(get_current_user), db=Depends(get_session)):
     delete_contact(db, contact_id, str(user["id"]))
     return {"message": "Contact deleted"}
+
+
+class ReorderIn(BaseModel):
+    order: list[str]  # list of contact IDs in desired priority order
+
+
+@router.put("/reorder")
+def reorder_contacts(body: ReorderIn, user=Depends(get_current_user), db=Depends(get_session)):
+    uid = str(user["id"])
+    for priority, contact_id in enumerate(body.order, start=1):
+        update_contact(db, contact_id, uid, priority=priority)
+    return {"message": "Contact order updated"}
 
 
 @router.get("/circle")

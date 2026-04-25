@@ -72,25 +72,35 @@ def welcome(user_name: str) -> str:
         HTML email content
     """
     from config import settings
-    app_url = f"{settings.base_url}/app"
-    content = f"""<h1 style="font-size:24px;font-weight:700;color:{EMAIL_TEXT_PRIMARY};margin:0 0 8px">Welcome, {user_name}.</h1>
-    <p style="font-size:14px;color:{EMAIL_TEXT_SECONDARY};line-height:1.6;margin:0 0 28px">You're all set up. Here's how to make Still Here actually work for you.</p>
-    <div style="background:{EMAIL_CARD_BACKGROUND};border:1px solid {EMAIL_BORDER_COLOR};border-radius:10px;padding:20px 24px;margin-bottom:16px">
-      <div style="font-size:11px;color:{EMAIL_BRAND_PRIMARY};letter-spacing:0.15em;text-transform:uppercase;margin-bottom:10px">Step 1</div>
-      <div style="font-size:14px;font-weight:600;color:{EMAIL_TEXT_PRIMARY};margin-bottom:4px">Add your emergency contacts</div>
-      <div style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.5">These are the people we'll alert if you miss a check-in.</div>
+    app_url = f"{settings.base_url}/signin"
+    content = f"""<div style="text-align:center;margin-bottom:28px">
+      <div style="font-size:48px;margin-bottom:12px">&#x1F6E1;&#xFE0F;</div>
+      <h1 style="font-size:26px;font-weight:700;color:{EMAIL_TEXT_PRIMARY};margin:0 0 6px">Welcome, {user_name}.</h1>
+      <p style="font-size:14px;color:{EMAIL_TEXT_SECONDARY};margin:0">Your account is live. Three steps to get fully set up.</p>
     </div>
-    <div style="background:{EMAIL_CARD_BACKGROUND};border:1px solid {EMAIL_BORDER_COLOR};border-radius:10px;padding:20px 24px;margin-bottom:16px">
-      <div style="font-size:11px;color:{EMAIL_BRAND_PRIMARY};letter-spacing:0.15em;text-transform:uppercase;margin-bottom:10px">Step 2</div>
-      <div style="font-size:14px;font-weight:600;color:{EMAIL_TEXT_PRIMARY};margin-bottom:4px">Set your check-in time</div>
-      <div style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.5">Pick a time you'll reliably be awake. 9 AM is a good default.</div>
+    <div style="background:{EMAIL_CARD_BACKGROUND};border:1px solid {EMAIL_BORDER_COLOR};border-radius:10px;padding:20px 24px;margin-bottom:12px;display:flex;align-items:flex-start;gap:16px">
+      <div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:rgba(233,69,96,0.12);display:flex;align-items:center;justify-content:center;color:{EMAIL_BRAND_PRIMARY};font-weight:700;font-size:14px">1</div>
+      <div>
+        <div style="font-size:14px;font-weight:600;color:{EMAIL_TEXT_PRIMARY};margin-bottom:4px">Add your emergency contacts</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.5">The people we'll alert if you miss a check-in. They'll get a heads-up email.</div>
+      </div>
     </div>
-    <div style="background:{EMAIL_CARD_BACKGROUND};border:1px solid {EMAIL_BORDER_COLOR};border-radius:10px;padding:20px 24px;margin-bottom:28px">
-      <div style="font-size:11px;color:{EMAIL_BRAND_PRIMARY};letter-spacing:0.15em;text-transform:uppercase;margin-bottom:10px">Step 3</div>
-      <div style="font-size:14px;font-weight:600;color:{EMAIL_TEXT_PRIMARY};margin-bottom:4px">Check in tomorrow</div>
-      <div style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.5">We'll send a push, email, or SMS. One tap. Done.</div>
+    <div style="background:{EMAIL_CARD_BACKGROUND};border:1px solid {EMAIL_BORDER_COLOR};border-radius:10px;padding:20px 24px;margin-bottom:12px;display:flex;align-items:flex-start;gap:16px">
+      <div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:rgba(233,69,96,0.12);display:flex;align-items:center;justify-content:center;color:{EMAIL_BRAND_PRIMARY};font-weight:700;font-size:14px">2</div>
+      <div>
+        <div style="font-size:14px;font-weight:600;color:{EMAIL_TEXT_PRIMARY};margin-bottom:4px">Set your check-in time</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.5">Pick a time you'll reliably be awake. Default is 9 AM your timezone.</div>
+      </div>
     </div>
-    <a href="{app_url}" style="display:block;text-align:center;padding:14px 28px;background:{EMAIL_BRAND_PRIMARY};color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600">Open the App →</a>"""
+    <div style="background:{EMAIL_CARD_BACKGROUND};border:1px solid {EMAIL_BORDER_COLOR};border-radius:10px;padding:20px 24px;margin-bottom:28px;display:flex;align-items:flex-start;gap:16px">
+      <div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:rgba(233,69,96,0.12);display:flex;align-items:center;justify-content:center;color:{EMAIL_BRAND_PRIMARY};font-weight:700;font-size:14px">3</div>
+      <div>
+        <div style="font-size:14px;font-weight:600;color:{EMAIL_TEXT_PRIMARY};margin-bottom:4px">Check in tomorrow</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.5">Push, email, or SMS — one tap, done. Miss it and we start the escalation chain.</div>
+      </div>
+    </div>
+    <a href="{app_url}" style="display:block;text-align:center;padding:14px 28px;background:{EMAIL_BRAND_PRIMARY};color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600">Open Still Here →</a>
+    <p style="font-size:12px;color:{EMAIL_TEXT_TERTIARY};text-align:center;margin-top:16px;line-height:1.6">Questions? Reply to this email or reach us at <a href="mailto:hello@stillherehq.com" style="color:{EMAIL_BRAND_PRIMARY};text-decoration:none">hello@stillherehq.com</a></p>"""
     return base_email(content)
 
 
@@ -127,6 +137,106 @@ def password_reset(user_name: str, reset_url: str) -> str:
     <p style="font-size:14px;color:{EMAIL_TEXT_SECONDARY};line-height:1.6;margin:0 0 28px">Hey {user_name}, we got a request to reset your password. This link expires in 1 hour.</p>
     <a href="{reset_url}" style="display:block;text-align:center;padding:14px 28px;background:{EMAIL_BRAND_PRIMARY};color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;margin-bottom:24px">Reset Password →</a>
     <p style="font-size:12px;color:{EMAIL_TEXT_TERTIARY};line-height:1.6">If you didn't request this, ignore this email.</p>"""
+    return base_email(content)
+
+
+def payment_confirmation(user_name: str, email: str) -> str:
+    """
+    Payment confirmation email sent after successful Stripe payment.
+
+    Args:
+        user_name: User's display name
+        email: User's email (for receipt reference)
+
+    Returns:
+        HTML email content
+    """
+    from config import settings
+    app_url = f"{settings.base_url}/signin"
+    content = f"""<div style="text-align:center;margin-bottom:28px">
+      <div style="font-size:48px;margin-bottom:12px">&#x2705;</div>
+      <h1 style="font-size:26px;font-weight:700;color:{EMAIL_BRAND_SECONDARY};margin:0 0 6px">Payment confirmed</h1>
+      <p style="font-size:14px;color:{EMAIL_TEXT_SECONDARY};margin:0">You're all set, {user_name}.</p>
+    </div>
+    <div style="background:{EMAIL_CARD_BACKGROUND};border:1px solid {EMAIL_BORDER_COLOR};border-radius:10px;padding:24px;margin-bottom:24px">
+      <table style="width:100%;border-collapse:collapse">
+        <tr>
+          <td style="font-size:13px;color:{EMAIL_TEXT_SECONDARY};padding:8px 0;border-bottom:1px solid {EMAIL_BORDER_COLOR}">Item</td>
+          <td style="font-size:13px;color:{EMAIL_TEXT_PRIMARY};padding:8px 0;border-bottom:1px solid {EMAIL_BORDER_COLOR};text-align:right;font-weight:600">Still Here — Lifetime Access</td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;color:{EMAIL_TEXT_SECONDARY};padding:8px 0;border-bottom:1px solid {EMAIL_BORDER_COLOR}">Amount</td>
+          <td style="font-size:13px;color:{EMAIL_BRAND_SECONDARY};padding:8px 0;border-bottom:1px solid {EMAIL_BORDER_COLOR};text-align:right;font-weight:600">$5.00 USD</td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;color:{EMAIL_TEXT_SECONDARY};padding:8px 0;border-bottom:1px solid {EMAIL_BORDER_COLOR}">Type</td>
+          <td style="font-size:13px;color:{EMAIL_TEXT_PRIMARY};padding:8px 0;border-bottom:1px solid {EMAIL_BORDER_COLOR};text-align:right">One-time payment</td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;color:{EMAIL_TEXT_SECONDARY};padding:8px 0">Account</td>
+          <td style="font-size:13px;color:{EMAIL_TEXT_PRIMARY};padding:8px 0;text-align:right">{email}</td>
+        </tr>
+      </table>
+    </div>
+    <p style="font-size:13px;color:{EMAIL_TEXT_SECONDARY};line-height:1.7;margin-bottom:24px">No subscriptions. No renewals. You own this forever. If you ever need help, reply to this email or reach us at <a href="mailto:hello@stillherehq.com" style="color:{EMAIL_BRAND_PRIMARY};text-decoration:none">hello@stillherehq.com</a>.</p>
+    <a href="{app_url}" style="display:block;text-align:center;padding:14px 28px;background:{EMAIL_BRAND_PRIMARY};color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600">Open Still Here →</a>"""
+    return base_email(content, brand_color=EMAIL_BRAND_SECONDARY)
+
+
+def trial_expiring(user_name: str, days_left: int) -> str:
+    """
+    Email sent when trial is about to expire (1-2 days left).
+
+    Args:
+        user_name: User's display name
+        days_left: Number of days remaining in trial
+
+    Returns:
+        HTML email content
+    """
+    from config import settings
+    app_url = f"{settings.base_url}/signin"
+    urgency = "tomorrow" if days_left <= 1 else f"in {days_left} days"
+    content = f"""<div style="text-align:center;margin-bottom:28px">
+      <div style="font-size:48px;margin-bottom:12px">&#x23F3;</div>
+      <h1 style="font-size:24px;font-weight:700;color:{EMAIL_TEXT_PRIMARY};margin:0 0 6px">Your trial ends {urgency}</h1>
+      <p style="font-size:14px;color:{EMAIL_TEXT_SECONDARY};margin:0">{user_name}, your free trial is almost up.</p>
+    </div>
+    <div style="background:{EMAIL_CARD_BACKGROUND};border:1px solid {EMAIL_BORDER_COLOR};border-radius:10px;padding:24px;margin-bottom:24px">
+      <p style="font-size:14px;color:{EMAIL_TEXT_SECONDARY};line-height:1.7;margin:0">When your trial ends, check-in reminders and escalation alerts stop firing. Your contacts won't be notified if you miss a check-in.</p>
+    </div>
+    <p style="font-size:13px;color:{EMAIL_TEXT_SECONDARY};line-height:1.7;margin-bottom:24px;text-align:center"><strong style="color:{EMAIL_BRAND_SECONDARY}">$5, one time, forever.</strong> No subscriptions. No renewals.</p>
+    <a href="{app_url}" style="display:block;text-align:center;padding:14px 28px;background:{EMAIL_BRAND_PRIMARY};color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;margin-bottom:12px">Upgrade Now →</a>
+    <p style="font-size:12px;color:{EMAIL_TEXT_TERTIARY};text-align:center;line-height:1.6">Reply to this email if you have questions.</p>"""
+    return base_email(content)
+
+
+def trial_expired(user_name: str) -> str:
+    """
+    Email sent when trial has expired.
+
+    Args:
+        user_name: User's display name
+
+    Returns:
+        HTML email content
+    """
+    from config import settings
+    app_url = f"{settings.base_url}/signin"
+    content = f"""<div style="text-align:center;margin-bottom:28px">
+      <div style="font-size:48px;margin-bottom:12px">&#x1F6D1;</div>
+      <h1 style="font-size:24px;font-weight:700;color:{EMAIL_TEXT_PRIMARY};margin:0 0 6px">Your trial has ended</h1>
+      <p style="font-size:14px;color:{EMAIL_TEXT_SECONDARY};margin:0">{user_name}, your safety net is paused.</p>
+    </div>
+    <div style="background:{EMAIL_CARD_BACKGROUND};border:1px solid {EMAIL_BORDER_COLOR};border-radius:10px;padding:24px;margin-bottom:24px">
+      <p style="font-size:14px;color:{EMAIL_TEXT_SECONDARY};line-height:1.7;margin:0 0 12px">Here's what stopped:</p>
+      <div style="font-size:13px;color:{EMAIL_TEXT_SECONDARY};padding-left:16px;border-left:2px solid {EMAIL_BRAND_PRIMARY};margin-bottom:8px">Daily check-in reminders</div>
+      <div style="font-size:13px;color:{EMAIL_TEXT_SECONDARY};padding-left:16px;border-left:2px solid {EMAIL_BRAND_PRIMARY};margin-bottom:8px">SMS and push notifications</div>
+      <div style="font-size:13px;color:{EMAIL_TEXT_SECONDARY};padding-left:16px;border-left:2px solid {EMAIL_BRAND_PRIMARY};margin-bottom:8px">Emergency contact escalation</div>
+      <div style="font-size:13px;color:{EMAIL_TEXT_SECONDARY};padding-left:16px;border-left:2px solid {EMAIL_BRAND_PRIMARY}">Welfare check calls</div>
+    </div>
+    <p style="font-size:14px;color:{EMAIL_TEXT_SECONDARY};text-align:center;margin-bottom:24px"><strong style="color:{EMAIL_BRAND_SECONDARY}">$5</strong> to turn it all back on. One payment, forever.</p>
+    <a href="{app_url}" style="display:block;text-align:center;padding:14px 28px;background:{EMAIL_BRAND_PRIMARY};color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600">Reactivate Now →</a>"""
     return base_email(content)
 
 

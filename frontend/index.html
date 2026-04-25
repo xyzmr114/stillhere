@@ -28,31 +28,33 @@
         </header>
 
         <div id="auth-screen">
+            <div class="auth-brand">
+                <div class="auth-brand-name">Still <span>Here</span></div>
+                <div class="auth-brand-tag">Someone always knows you're here.</div>
+            </div>
+
             <div id="login-form">
                 <h2>Welcome Back</h2>
-                <p class="subtitle">Your safety matters</p>
+                <p class="subtitle">Check in. Stay safe. Keep going.</p>
                 <p id="login-error" class="error-text"></p>
                 <input type="email" id="login-email" placeholder="Email" autocomplete="email">
                 <input type="password" id="login-password" placeholder="Password" autocomplete="current-password">
                 <button id="login-btn">Log In</button>
-                <p class="switch-link">Don't have an account? <a href="#" id="show-register">Sign up</a></p>
+                <p class="switch-link">New here? <a href="/signup">Create an account</a></p>
                 <p class="switch-link" style="margin-top:6px"><a href="/reset-password" style="opacity:0.5;font-size:13px">Forgot password?</a></p>
             </div>
 
-            <div id="register-form" style="display:none">
-                <h2>Create Account</h2>
-                <p class="subtitle">Stay connected, stay safe</p>
-                <p id="register-error" class="error-text"></p>
-                <input type="text" id="reg-name" placeholder="Full Name" autocomplete="name">
-                <input type="email" id="reg-email" placeholder="Email" autocomplete="email">
-                <input type="tel" id="reg-phone" placeholder="Phone (+1...)" autocomplete="tel">
-                <input type="password" id="reg-password" placeholder="Password" autocomplete="new-password">
-                <label class="tos-label">
-                    <input type="checkbox" id="reg-tos">
-                    <span>I agree to the <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a></span>
-                </label>
-                <button id="register-btn">Sign Up</button>
-                <p class="switch-link">Already have an account? <a href="#" id="show-login">Log in</a></p>
+
+            <div class="auth-footer">
+                <a href="/signup" class="auth-signup-cta">Start Free Trial — 7 days, no card</a>
+                <div class="auth-footer-links" style="margin-top:20px">
+                    <a href="/">Home</a>
+                    <a href="/privacy">Privacy</a>
+                    <a href="/terms">Terms</a>
+                    <a href="/consent">SMS Consent</a>
+                    <a href="/contact">Contact</a>
+                </div>
+                <p class="auth-footer-copy">&copy; 2026 Sahaj Tech LLC</p>
             </div>
         </div>
 
@@ -89,7 +91,7 @@
                     <div class="onboarding-why-list">
                         <div class="ob-why-item">✓ No live tracking. No surveillance. Just a daily tap.</div>
                         <div class="ob-why-item">✓ Escalates to people you trust — not 911.</div>
-                        <div class="ob-why-item">✓ $5 once. Your safety net doesn't expire.</div>
+                        <div class="ob-why-item">✓ 7-day free trial. Then $5 once — yours forever.</div>
                     </div>
                     <button class="ob-next-btn" onclick="obNext()">Let's set you up →</button>
                     <button class="ob-skip-btn" onclick="obSkip()">Skip setup</button>
@@ -500,6 +502,48 @@
                         </div>
                         <button id="save-settings-btn">Save Settings</button>
                         <button id="dry-run-btn" class="btn btn-outline" style="width:100%;margin-top:12px">Test My Setup (Dry Run)</button>
+                    </div>
+                    <div class="settings-card">
+                        <h3 class="section-title">Notifications</h3>
+                        <p style="font-size:13px;opacity:0.55;margin-bottom:16px">Control how and when we reach you.</p>
+                        <div class="setting-group">
+                            <label class="toggle-label">
+                                <span>Push notifications</span>
+                                <input type="checkbox" id="pref-push" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-group">
+                            <label class="toggle-label">
+                                <span>Email reminders</span>
+                                <input type="checkbox" id="pref-email" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-group">
+                            <label class="toggle-label">
+                                <span>SMS reminders</span>
+                                <input type="checkbox" id="pref-sms" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-group">
+                            <label class="toggle-label">
+                                <span>Weekly digest email</span>
+                                <input type="checkbox" id="pref-digest" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-group" style="margin-top:16px">
+                            <label for="quiet-start">Quiet hours <span style="opacity:0.5;font-size:12px">(pause non-urgent notifications)</span></label>
+                            <div style="display:flex;gap:8px;align-items:center">
+                                <input type="time" id="quiet-start" style="flex:1">
+                                <span style="opacity:0.4">to</span>
+                                <input type="time" id="quiet-end" style="flex:1">
+                            </div>
+                            <small style="opacity:0.5;display:block;margin-top:4px">Escalation alerts to your contacts are never silenced.</small>
+                        </div>
+                        <button id="save-notif-prefs-btn" style="width:100%;margin-top:16px">Save Notification Preferences</button>
                     </div>
                     <div class="settings-card">
                         <h3 class="section-title">Vacation Mode</h3>

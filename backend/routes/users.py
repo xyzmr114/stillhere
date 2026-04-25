@@ -84,6 +84,12 @@ class UserPatch(BaseModel):
     state: str = None
     zip_code: str = None
     timezone: str = None
+    quiet_hours_start: Optional[str] = None
+    quiet_hours_end: Optional[str] = None
+    notify_push: bool = None
+    notify_email: bool = None
+    notify_sms: bool = None
+    notify_weekly_digest: bool = None
 
 
 @router.post("/register")
@@ -103,13 +109,14 @@ def register(request: Request, body: RegisterIn, db=Depends(get_session)):
     pw_hash = hash_password(body.password)
     result = db.execute(
         text(
-            "INSERT INTO users (email, name, password_hash, phone, accepted_tos) VALUES (:email, :name, :pw, :phone, TRUE) RETURNING id"
+            "INSERT INTO users (email, name, password_hash, phone, accepted_tos, trial_ends_at) "
+            "VALUES (:email, :name, :pw, :phone, TRUE, NOW() + INTERVAL '7 days') RETURNING id"
         ),
         {"email": body.email, "name": body.name, "pw": pw_hash, "phone": body.phone},
     ).first()
     db.commit()
-    token = create_jwt(str(result[0]))
     uid = str(result[0])
+    token = create_jwt(uid, token_version=1)
     try:
         from services.email_svc import send_welcome_email, send_verification_email
         send_welcome_email(body.email, body.name)
@@ -125,7 +132,7 @@ def login(request: Request, body: LoginIn, db=Depends(get_session)):
     user = get_user_by_email(db, body.email)
     if not user or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    token = create_jwt(str(user["id"]))
+    token = create_jwt(str(user["id"]), token_version=user.get("token_version", 1))
     return {"token": token, "user_id": str(user["id"])}
 
 
@@ -191,6 +198,14 @@ def update_me(body: UserPatch, user=Depends(get_current_user), db=Depends(get_se
             raise HTTPException(status_code=400, detail="Invalid phone number")
         raw["phone"] = valid_phone
 
+    # Validate quiet hours: both or neither
+    qh_start = raw.get("quiet_hours_start")
+    qh_end = raw.get("quiet_hours_end")
+    if (qh_start is not None) != (qh_end is not None):
+        # Allow clearing both
+        if not (qh_start is None and qh_end is None):
+            raise HTTPException(status_code=400, detail="Both quiet_hours_start and quiet_hours_end are required")
+
     has_start = "vacation_start" in raw and raw["vacation_start"] is not None
     has_end = "vacation_end" in raw and raw["vacation_end"] is not None
     has_start_null = "vacation_start" in raw and raw["vacation_start"] is None
@@ -227,6 +242,8 @@ def update_me(body: UserPatch, user=Depends(get_current_user), db=Depends(get_se
         "confirm_by_minutes", "streak_reminder_hours", "vacation_start",
         "vacation_end", "is_dormant", "contact_grace_hours",
         "address", "city", "state", "zip_code", "timezone",
+        "quiet_hours_start", "quiet_hours_end",
+        "notify_push", "notify_email", "notify_sms", "notify_weekly_digest",
     }
     set_parts = []
     for k in fields:
@@ -260,7 +277,7 @@ def verify_email(token: str, db=Depends(get_session)):
     db.execute(text("UPDATE users SET email_verified = TRUE WHERE id::text = :uid"), {"uid": uid})
     db.commit()
     from fastapi.responses import RedirectResponse
-    return RedirectResponse("/app?verified=1")
+    return RedirectResponse("/signin?verified=1")
 
 
 @router.post("/resend-verification")
@@ -308,9 +325,23 @@ def reset_password(body: ResetPasswordIn, db=Depends(get_session)):
     if len(body.new_password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     pw_hash = hash_password(body.new_password)
-    db.execute(text("UPDATE users SET password_hash = :pw WHERE id::text = :uid"), {"pw": pw_hash, "uid": uid})
+    db.execute(
+        text("UPDATE users SET password_hash = :pw, token_version = token_version + 1 WHERE id::text = :uid"),
+        {"pw": pw_hash, "uid": uid},
+    )
     db.commit()
     return {"message": "Password updated successfully"}
+
+
+@router.post("/logout")
+def logout(user=Depends(get_current_user), db=Depends(get_session)):
+    """Invalidate all existing tokens by bumping token_version."""
+    db.execute(
+        text("UPDATE users SET token_version = token_version + 1 WHERE id::text = :uid"),
+        {"uid": str(user["id"])},
+    )
+    db.commit()
+    return {"ok": True}
 
 
 from db import get_user

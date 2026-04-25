@@ -27,11 +27,17 @@ def get_session():
         db.close()
 
 
+def _strip_sensitive(user_dict: dict) -> dict:
+    """Remove sensitive fields from user dict before returning."""
+    user_dict.pop("password_hash", None)
+    return user_dict
+
+
 def get_user(db, user_id: str):
     row = db.execute(
         text("SELECT * FROM users WHERE id = :id"), {"id": user_id}
     ).mappings().first()
-    return dict(row) if row else None
+    return _strip_sensitive(dict(row)) if row else None
 
 
 def get_user_by_email(db, email: str):
@@ -112,13 +118,19 @@ def add_contact(db, user_id: str, name: str, phone: str, email: str = None, prio
     return result[0]
 
 
+_ALLOWED_CONTACT_COLUMNS = {"name", "phone", "email", "priority"}
+
+
 def update_contact(db, contact_id: str, user_id: str, **fields):
-    sets = ", ".join(f"{k} = :{k}" for k in fields)
-    fields["cid"] = contact_id
-    fields["uid"] = user_id
+    safe_fields = {k: v for k, v in fields.items() if k in _ALLOWED_CONTACT_COLUMNS}
+    if not safe_fields:
+        return
+    sets = ", ".join(f"{k} = :{k}" for k in safe_fields)
+    safe_fields["cid"] = contact_id
+    safe_fields["uid"] = user_id
     db.execute(
         text(f"UPDATE emergency_contacts SET {sets} WHERE id = :cid AND user_id = :uid"),
-        fields,
+        safe_fields,
     )
     db.commit()
 
@@ -1188,13 +1200,17 @@ def create_dead_letter(db, user_id: str, subject: str, body: str, trigger_days: 
     return str(result[0])
 
 
+_ALLOWED_DEAD_LETTER_COLUMNS = {"subject", "body", "trigger_days", "recipient_type", "recipient_email"}
+
+
 def update_dead_letter(db, letter_id: str, user_id: str, **fields):
     """Update a dead letter."""
-    if not fields:
+    safe_fields = {k: v for k, v in fields.items() if k in _ALLOWED_DEAD_LETTER_COLUMNS}
+    if not safe_fields:
         return
-    sets = ", ".join(f"{k} = :{k}" for k in fields)
-    fields["lid"] = letter_id
-    fields["uid"] = user_id
+    sets = ", ".join(f"{k} = :{k}" for k in safe_fields)
+    safe_fields["lid"] = letter_id
+    safe_fields["uid"] = user_id
     db.execute(
         text(f"UPDATE dead_letters SET {sets}, updated_at = NOW() WHERE id::text = :lid AND user_id::text = :uid"),
         fields,

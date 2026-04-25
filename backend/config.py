@@ -8,7 +8,7 @@ _ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
 class Settings(BaseSettings):
     database_url: str = ""
-    jwt_secret: str = "dev-secret"
+    jwt_secret: str = ""
     redis_url: str = "redis://localhost:6379"
     celery_broker: str = "redis://localhost:6379/0"
     base_url: str = "https://stillherehq.com"

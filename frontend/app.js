@@ -1,4 +1,5 @@
 const API = window.location.origin;
+const IS_NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform());
 
 let _deferredInstallPrompt = null;
 window.addEventListener("beforeinstallprompt", (e) => {
@@ -45,21 +46,51 @@ async function getClientConfig() {
     return _clientConfig;
 }
 
+function getTrialStatus(user) {
+    if (user.has_paid) return { active: true, paid: true };
+    if (!user.trial_ends_at) return { active: false, paid: false, expired: true, daysLeft: 0 };
+    const ends = new Date(user.trial_ends_at);
+    const now = new Date();
+    const ms = ends - now;
+    if (ms <= 0) return { active: false, paid: false, expired: true, daysLeft: 0 };
+    return { active: true, paid: false, expired: false, daysLeft: Math.ceil(ms / 86400000) };
+}
+
+function showTrialBanner(daysLeft) {
+    let existing = document.getElementById("trial-banner");
+    if (existing) existing.remove();
+    const banner = document.createElement("div");
+    banner.id = "trial-banner";
+    const urgent = daysLeft <= 2;
+    banner.style.cssText = `padding:10px 16px;text-align:center;font-size:13px;font-weight:500;cursor:pointer;border-bottom:1px solid var(--border);transition:background .15s;${urgent ? "background:rgba(233,69,96,0.12);color:var(--accent)" : "background:rgba(78,204,163,0.08);color:var(--success)"}`;
+    banner.innerHTML = urgent
+        ? `⚠️ ${daysLeft} day${daysLeft === 1 ? "" : "s"} left in your trial · <strong style="text-decoration:underline">Upgrade — $5 forever</strong>`
+        : `🛡️ Free trial · ${daysLeft} day${daysLeft === 1 ? "" : "s"} remaining · <span style="text-decoration:underline">Upgrade</span>`;
+    banner.addEventListener("click", () => showPaywall());
+    const header = document.getElementById("app-header");
+    header.parentNode.insertBefore(banner, header.nextSibling);
+}
+
 async function showPaywall() {
     const mainScreen = document.getElementById("main-screen");
+    const nav = document.getElementById("bottom-nav");
+    if (nav) nav.style.display = "none";
     mainScreen.innerHTML = `
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;text-align:center;padding:24px">
-            <div style="font-size:48px;margin-bottom:16px">🛡️</div>
-            <h2 style="font-size:28px;font-weight:700;margin-bottom:8px">One step left</h2>
-            <p style="color:#8888a0;margin-bottom:24px;max-width:400px;line-height:1.6">
-                Still Here is $5, lifetime. No subscriptions. No hidden fees. One payment and you're in forever.
+            <div style="font-size:56px;margin-bottom:20px">🛑</div>
+            <h2 style="font-size:26px;font-weight:700;margin-bottom:6px;color:var(--text)">Your trial has ended</h2>
+            <p style="color:var(--text-secondary);margin-bottom:8px;font-size:14px;line-height:1.6">
+                Check-in reminders and escalation alerts are paused.
             </p>
-            <button id="pay-btn" style="background:#4ecca3;color:#0a0a14;padding:16px 40px;border:none;border-radius:10px;font-size:18px;font-weight:700;cursor:pointer;margin-bottom:8px">
-                Pay $5 — Lifetime Access
+            <p style="color:var(--text-muted);margin-bottom:28px;max-width:380px;font-size:13px;line-height:1.6">
+                Pay once to reactivate everything — your contacts, settings, and history are all still here.
+            </p>
+            <button id="pay-btn" style="background:var(--success);color:#0a0a14;padding:16px 44px;border:none;border-radius:10px;font-size:18px;font-weight:700;cursor:pointer;margin-bottom:8px;letter-spacing:-0.3px">
+                Pay $5 — Yours Forever
             </button>
-            <p style="color:#55556a;font-size:12px;margin-bottom:16px">Appears as <strong style="color:#8888a0">Sahaj Tech LLC</strong> on your card statement</p>
-            <button id="pay-later-btn" style="background:none;border:none;color:#55556a;cursor:pointer;font-size:14px">I'll pay later (log out)</button>
-            <div id="pay-error" style="color:#e94560;margin-top:12px;font-size:14px"></div>
+            <p style="color:var(--text-muted);font-size:11px;margin-bottom:20px">One-time payment · No subscriptions · Appears as <strong style="color:var(--text-secondary)">Sahaj Tech LLC</strong></p>
+            <button id="pay-later-btn" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;text-decoration:underline">Log out</button>
+            <div id="pay-error" style="color:var(--accent);margin-top:12px;font-size:14px"></div>
         </div>
     `;
     document.getElementById("pay-btn").addEventListener("click", async () => {
@@ -72,7 +103,7 @@ async function showPaywall() {
         } catch(e) {
             document.getElementById("pay-error").textContent = e.message || "Checkout failed — try again.";
             btn.disabled = false;
-            btn.textContent = "Pay $5 — Lifetime Access";
+            btn.textContent = "Pay $5 — Yours Forever";
         }
     });
     document.getElementById("pay-later-btn").addEventListener("click", () => {
@@ -121,18 +152,6 @@ function showToast(message, type) {
     }, 3000);
 }
 
-document.getElementById("show-register").addEventListener("click", (e) => {
-    e.preventDefault();
-    document.getElementById("login-form").style.display = "none";
-    document.getElementById("register-form").style.display = "";
-});
-
-document.getElementById("show-login").addEventListener("click", (e) => {
-    e.preventDefault();
-    document.getElementById("register-form").style.display = "none";
-    document.getElementById("login-form").style.display = "";
-});
-
 document.getElementById("login-btn").addEventListener("click", async () => {
     const email = document.getElementById("login-email").value.trim();
     const password = document.getElementById("login-password").value;
@@ -149,36 +168,6 @@ document.getElementById("login-btn").addEventListener("click", async () => {
         await loadMain();
     } catch (e) {
         document.getElementById("login-error").textContent = e.message;
-    }
-});
-
-document.getElementById("register-btn").addEventListener("click", async () => {
-    const name = document.getElementById("reg-name").value.trim();
-    const email = document.getElementById("reg-email").value.trim();
-    const phone = document.getElementById("reg-phone").value.trim() || null;
-    const password = document.getElementById("reg-password").value;
-    const tos = document.getElementById("reg-tos").checked;
-    const errEl = document.getElementById("register-error");
-    if (!name || !email || !password) {
-        errEl.textContent = "Name, email, and password are required";
-        return;
-    }
-    if (!tos) {
-        errEl.textContent = "You must agree to the Terms of Service and Privacy Policy";
-        return;
-    }
-    try {
-        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-        const data = await api("/users/register", {
-            method: "POST",
-            body: JSON.stringify({ email, name, password, phone, accepted_tos: true }),
-        });
-        // Save user's detected timezone
-        try { await api("/users/me", { method: "PATCH", body: JSON.stringify({ timezone: tz }) }); } catch(_) {}
-        setToken(data.token);
-        await loadMain();
-    } catch (e) {
-        errEl.textContent = e.message;
     }
 });
 
@@ -249,7 +238,7 @@ document.getElementById("add-contact-btn").addEventListener("click", async () =>
     try {
         await api("/contacts", {
             method: "POST",
-            body: JSON.stringify({ name, phone, email, priority: 1 }),
+            body: JSON.stringify({ name, phone, email }),
         });
         document.getElementById("add-contact-modal").style.display = "none";
         document.getElementById("contact-name").value = "";
@@ -309,6 +298,28 @@ document.getElementById("dry-run-btn").addEventListener("click", async () => {
     } finally {
         btn.disabled = false;
         btn.textContent = "Test My Setup (Dry Run)";
+    }
+});
+
+document.getElementById("save-notif-prefs-btn").addEventListener("click", async () => {
+    const notify_push = document.getElementById("pref-push").checked;
+    const notify_email = document.getElementById("pref-email").checked;
+    const notify_sms = document.getElementById("pref-sms").checked;
+    const notify_weekly_digest = document.getElementById("pref-digest").checked;
+    const quiet_hours_start = document.getElementById("quiet-start").value || null;
+    const quiet_hours_end = document.getElementById("quiet-end").value || null;
+    if ((quiet_hours_start && !quiet_hours_end) || (!quiet_hours_start && quiet_hours_end)) {
+        showToast("Set both quiet hours start and end, or clear both", "error");
+        return;
+    }
+    try {
+        await api("/users/me", {
+            method: "PATCH",
+            body: JSON.stringify({ notify_push, notify_email, notify_sms, notify_weekly_digest, quiet_hours_start, quiet_hours_end }),
+        });
+        showToast("Notification preferences saved", "success");
+    } catch (e) {
+        showToast(e.message, "error");
     }
 });
 
@@ -376,7 +387,8 @@ document.getElementById("addr-save-btn").addEventListener("click", async () => {
     }
 });
 
-document.getElementById("logout-btn").addEventListener("click", () => {
+document.getElementById("logout-btn").addEventListener("click", async () => {
+    try { await api("/users/logout", { method: "POST" }); } catch {}
     clearToken();
     showScreen("auth");
     showToast("Logged out", "success");
@@ -453,23 +465,42 @@ async function loadMain() {
         loadNonEmergencyDisplay(me.non_emergency_number, me.non_emergency_verified);
     }
 
+    // Load notification preferences
+    const prefPush = document.getElementById("pref-push");
+    const prefEmail = document.getElementById("pref-email");
+    const prefSms = document.getElementById("pref-sms");
+    const prefDigest = document.getElementById("pref-digest");
+    const quietStart = document.getElementById("quiet-start");
+    const quietEnd = document.getElementById("quiet-end");
+    if (prefPush) prefPush.checked = me.notify_push !== false;
+    if (prefEmail) prefEmail.checked = me.notify_email !== false;
+    if (prefSms) prefSms.checked = me.notify_sms !== false;
+    if (prefDigest) prefDigest.checked = me.notify_weekly_digest !== false;
+    if (quietStart) quietStart.value = (me.quiet_hours_start || "").slice(0, 5);
+    if (quietEnd) quietEnd.value = (me.quiet_hours_end || "").slice(0, 5);
+
     maybeShowTosGate(me, () => {});
 
-    if (!me.has_paid) {
-        const params = new URLSearchParams(window.location.search);
-        if (params.get("paid") === "1") {
+    const trial = getTrialStatus(me);
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get("paid") === "1") {
+        if (!me.has_paid) {
             showToast("Payment processing... refreshing in 3s", "success");
             setTimeout(() => window.location.reload(), 3000);
             return;
         }
+        window.history.replaceState({}, document.title, "/signin");
+        showToast("Payment confirmed! Welcome to Still Here. ✓", "success");
+    }
+
+    if (!trial.active) {
         await showPaywall();
         return;
     }
 
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("paid") === "1") {
-        window.history.replaceState({}, document.title, "/app");
-        showToast("Payment confirmed! Welcome to Still Here. ✓", "success");
+    if (!trial.paid) {
+        showTrialBanner(trial.daysLeft);
     }
 
     await Promise.all([loadStatus(), loadStats(me), loadContacts(), loadBuddyStatus(), loadActivityTimer()]);
@@ -607,18 +638,26 @@ async function loadContacts() {
         list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div>No contacts yet. Tap + to add one.</div>';
         return;
     }
-    contacts.forEach((c) => {
+    contacts.forEach((c, idx) => {
         const div = document.createElement("div");
         div.className = "contact-card";
+        div.draggable = true;
+        div.dataset.contactId = c.id;
+        const handle = document.createElement("div");
+        handle.className = "contact-drag-handle";
+        handle.textContent = "⠿";
+        handle.title = "Drag to reorder";
         const avatar = document.createElement("div");
         avatar.className = "contact-avatar";
         avatar.textContent = c.name.charAt(0).toUpperCase();
         const info = document.createElement("div");
         info.className = "contact-info";
+        const priorityLabel = contacts.length > 1 ? `<div class="contact-priority-badge">#${idx + 1} priority</div>` : "";
         info.innerHTML =
             `<div class="contact-name">${esc(c.name)}</div>` +
             `<div class="contact-phone">${esc(c.phone)}</div>` +
-            (c.email ? `<div class="contact-email">${esc(c.email)}</div>` : "");
+            (c.email ? `<div class="contact-email">${esc(c.email)}</div>` : "") +
+            priorityLabel;
         if (c.times_confirmed > 0) {
             const badge = document.createElement("span");
             badge.className = "contact-badge";
@@ -638,6 +677,33 @@ async function loadContacts() {
                 showToast(e.message, "error");
             }
         });
+        // Drag-and-drop events
+        div.addEventListener("dragstart", (e) => {
+            div.classList.add("dragging");
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", c.id);
+        });
+        div.addEventListener("dragend", () => div.classList.remove("dragging"));
+        div.addEventListener("dragover", (e) => { e.preventDefault(); div.classList.add("drag-over"); });
+        div.addEventListener("dragleave", () => div.classList.remove("drag-over"));
+        div.addEventListener("drop", async (e) => {
+            e.preventDefault();
+            div.classList.remove("drag-over");
+            const cards = [...list.querySelectorAll(".contact-card")];
+            const draggedId = e.dataTransfer.getData("text/plain");
+            const draggedCard = list.querySelector(`[data-contact-id="${draggedId}"]`);
+            if (draggedCard && draggedCard !== div) {
+                list.insertBefore(draggedCard, div);
+                const order = [...list.querySelectorAll(".contact-card")].map(c => c.dataset.contactId);
+                try {
+                    await api("/contacts/reorder", { method: "PUT", body: JSON.stringify({ order }) });
+                    await loadContacts();
+                } catch (err) {
+                    showToast(err.message, "error");
+                }
+            }
+        });
+        div.appendChild(handle);
         div.appendChild(avatar);
         div.appendChild(info);
         div.appendChild(del);
@@ -908,6 +974,7 @@ function updateVacationStatus(start, end) {
 
 function maybeShowNotifPrompt() {
     if (localStorage.getItem("notif_prompt_seen")) return;
+    if (IS_NATIVE) { registerNativePush(); return; }
     if (Notification && Notification.permission === "granted") return;
     document.getElementById("notif-prompt").style.display = "";
 }
@@ -935,8 +1002,10 @@ document.getElementById("notif-skip-btn").addEventListener("click", () => {
 });
 
 let _firebaseInited = false;
+let _nativePushInited = false;
 
 async function registerPushToken() {
+    if (IS_NATIVE) return registerNativePush();
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
     try {
         const cfg = await getClientConfig();
@@ -963,6 +1032,40 @@ async function registerPushToken() {
         }
     } catch (e) {
         console.warn("Push registration failed:", e);
+    }
+}
+
+async function registerNativePush() {
+    if (_nativePushInited) return;
+    try {
+        const { PushNotifications } = window.Capacitor.Plugins;
+        const perm = await PushNotifications.requestPermissions();
+        if (perm.receive !== "granted") {
+            console.warn("Native push permission denied");
+            return;
+        }
+        PushNotifications.addListener("registration", async (token) => {
+            _nativePushInited = true;
+            await api("/users/device-token", { method: "POST", body: JSON.stringify({ token: token.value }) });
+        });
+        PushNotifications.addListener("registrationError", (err) => {
+            console.error("Native push registration error:", err);
+        });
+        PushNotifications.addListener("pushNotificationReceived", (notification) => {
+            showToast(notification.body || notification.title || "Still Here", "info");
+        });
+        PushNotifications.addListener("pushNotificationActionPerformed", async (action) => {
+            const data = action.notification?.data || {};
+            if (data.quick_checkin_token) {
+                try {
+                    await api("/checkin/quick", { method: "POST", body: JSON.stringify({ token: data.quick_checkin_token }) });
+                    showToast("Checked in!", "success");
+                } catch {}
+            }
+        });
+        await PushNotifications.register();
+    } catch (e) {
+        console.warn("Native push setup failed:", e);
     }
 }
 
@@ -1287,7 +1390,7 @@ async function inviteFamilyMember() {
         const data = await api("/family/invite", { method: "POST", body: JSON.stringify({ email }) });
         _familyInviteToken = data.token;
         const linkEl = document.getElementById("family-invite-link");
-        linkEl.textContent = window.location.origin + "/app?join=" + data.token;
+        linkEl.textContent = window.location.origin + "/signin?join=" + data.token;
         linkEl.style.display = "block";
         showToast("Invite created!", "success");
     } catch (e) {
@@ -1313,7 +1416,7 @@ document.getElementById("family-copy-link-btn")?.addEventListener("click", async
         showToast("Invite someone first to get a shareable link", "error");
         return;
     }
-    const link = window.location.origin + "/app?join=" + _familyInviteToken;
+    const link = window.location.origin + "/signin?join=" + _familyInviteToken;
     try {
         await navigator.clipboard.writeText(link);
         showToast("Invite link copied!", "success");
@@ -1484,7 +1587,7 @@ async function loadNetcore() {
         document.getElementById("netcore-identity-json").textContent = JSON.stringify(identityData, null, 2);
         const internalIp = deviceData.internal_ip || "";
         document.getElementById("netcore-internal-ip").textContent = internalIp;
-        document.getElementById("netcore-app-url").textContent = `http://${internalIp}:8000/app`;
+        document.getElementById("netcore-app-url").textContent = `http://${internalIp}:8000/signin`;
         const peers = peersData.peers || [];
         if (peers.length > 0) {
             peersBlock.style.display = "";
@@ -1566,6 +1669,7 @@ function isInStandaloneMode() {
 }
 
 function maybeShowPwaSheet() {
+    if (IS_NATIVE) return;
     if (isInStandaloneMode()) return;
     if (!isIOS() && !isAndroid()) return;
     if (localStorage.getItem("pwa_sheet_dismissed")) return;
@@ -1599,6 +1703,7 @@ async function triggerPwaInstall() {
 // ─── Push Nudge ──────────────────────────────────────────────────────────────
 
 function maybeShowPushNudge() {
+    if (IS_NATIVE) return; // native push handled by registerNativePush
     if (!("Notification" in window)) return;
     const nudge = document.getElementById("push-nudge");
     const textEl = document.getElementById("push-nudge-text");
@@ -1799,6 +1904,13 @@ async function obRequestNotif() {
     const btn = document.getElementById("ob-notif-btn");
     btn.disabled = true;
     try {
+        if (IS_NATIVE) {
+            await registerNativePush();
+            document.getElementById("ob-notif-state").innerHTML = `<div style="color:#4ecca3;font-size:15px;font-weight:600;padding:12px 0">✓ Notifications enabled</div>`;
+            document.getElementById("ob-done-notif").textContent = "✓ Notifications enabled";
+            setTimeout(() => obNext(), 800);
+            return;
+        }
         const permission = await Notification.requestPermission();
         if (permission === "granted") {
             document.getElementById("ob-notif-state").innerHTML = `<div style="color:#4ecca3;font-size:15px;font-weight:600;padding:12px 0">✓ Notifications enabled</div>`;

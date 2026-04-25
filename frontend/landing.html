@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<script>if(location.search.includes('code=')||location.search.includes('error='))location.replace('/app'+location.search+location.hash);</script>
+<script>if(location.search.includes('code=')||location.search.includes('error='))location.replace('/signin'+location.search+location.hash);</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Still Here — Someone always knows you're here.</title>
-<meta name="description" content="A daily check-in app that only escalates when it matters. $5 one-time, we host it. Or self-host free on Docker. No subscriptions. Never 911.">
+<meta name="description" content="A daily check-in app that only escalates when it matters. 7-day free trial, then $5 one-time. Or self-host free on Docker. No subscriptions. Never 911.">
 <meta property="og:title" content="Still Here — Someone always knows you're here.">
 <meta property="og:description" content="Daily check-in. Miss it — we call your people, not 911.">
 <meta property="og:type" content="website">
@@ -169,7 +169,7 @@ textarea.form-input{resize:vertical;min-height:120px}
     <a href="#how">How It Works</a>
     <a href="#pricing">Pricing</a>
     <a href="/tester">Live Demo</a>
-    <a href="/app" class="nav-cta">Get Started</a>
+    <a href="/signup" class="nav-cta">Free Trial</a>
   </div>
 </nav>
 
@@ -180,10 +180,10 @@ textarea.form-input{resize:vertical;min-height:120px}
     <h1>Someone always knows <em>you're still here.</em></h1>
     <p class="hero-sub">A daily check-in app that only escalates when it matters.<br><strong>Miss it — we call your people</strong>, not 911.</p>
     <div class="ctas">
-      <a href="/app" class="btn-red">Get Started — $5 <span class="arr">→</span></a>
+      <a href="/signup" class="btn-red">Start Free Trial <span class="arr">→</span></a>
       <a href="/tester" class="btn-outline">Try the Live Demo →</a>
     </div>
-    <p class="hero-note">One-time payment, we host it. Or self-host free on Docker — forever.</p>
+    <p class="hero-note">7 days free, then $5 one-time. No subscriptions. Or self-host free on Docker.</p>
   </div>
   <div class="hero-phone">
     <div class="ph-wrap">
@@ -234,7 +234,7 @@ textarea.form-input{resize:vertical;min-height:120px}
 <section id="features">
   <div class="sec-eyebrow">Everything included</div>
   <h2>The whole system.<br>One price.</h2>
-  <p class="sec-sub">No tiers. No "pro" features. No add-ons. One payment, everything's on.</p>
+  <p class="sec-sub">No tiers. No "pro" features. No add-ons. Free for 7 days, then one payment — everything stays on.</p>
   <div class="feat-grid fade-up">
     <div class="feat"><span class="feat-ico">🔔</span><h3>Multi-channel check-ins</h3><p>Push notification, email, SMS, or voice call. Your choice, every single day.</p></div>
     <div class="feat"><span class="feat-ico">👥</span><h3>Emergency contact circle</h3><p>Add your people. They only hear from us when it matters. Majority vote required before any action.</p></div>
@@ -248,22 +248,22 @@ textarea.form-input{resize:vertical;min-height:120px}
 <section id="pricing">
   <div class="sec-eyebrow">Pricing</div>
   <h2>Pay once.<br>Or not at all.</h2>
-  <p class="sec-sub">We host it for $5, forever. Or pull the Docker image and run it yourself — completely free.</p>
+  <p class="sec-sub">7-day free trial. Then $5, forever. Or pull the Docker image and run it yourself — completely free.</p>
   <div class="pricing-grid fade-up">
     <div class="pcard featured">
       <div class="pc-badge badge-r">Hosted by us</div>
       <div class="pc-price">$5</div>
       <div class="pc-period">one-time · stillherehq.com</div>
-      <p class="pc-desc">We run the server. Zero infrastructure. Works the moment you sign up.</p>
+      <p class="pc-desc">We run the server. Zero setup. 7-day free trial, no card required to start.</p>
       <ul class="pc-list">
+        <li>7-day free trial</li>
         <li>Push, email &amp; SMS check-ins</li>
         <li>Emergency contact circle</li>
-        <li>Smart home + Alexa integration</li>
         <li>Family plan included</li>
         <li>Full audit log</li>
         <li>No renewals. Ever.</li>
       </ul>
-      <a href="/buy" class="pc-btn pc-btn-r">Pay $5 — Get Started →</a>
+      <a href="/signup" class="pc-btn pc-btn-r">Start Free Trial →</a>
     </div>
     <div class="pcard">
       <div class="pc-badge badge-g">Self-hosted</div>
@@ -379,12 +379,12 @@ textarea.form-input{resize:vertical;min-height:120px}
       <p class="foot-tagline">Built with care, for the people who deserve a quiet safety net. No panic. No 911. No drama.</p>
     </div>
     <div class="foot-col"><h4>Product</h4><div class="foot-links"><a href="#how">How It Works</a><a href="#features">Features</a><a href="#pricing">Pricing</a><a href="/tester">Live Demo</a></div></div>
-    <div class="foot-col"><h4>Account</h4><div class="foot-links"><a href="/app">Get Started</a><a href="/app">Log In</a><a href="/reset-password">Forgot Password</a></div></div>
+    <div class="foot-col"><h4>Account</h4><div class="foot-links"><a href="/signup">Get Started</a><a href="/signin">Log In</a><a href="/reset-password">Forgot Password</a></div></div>
     <div class="foot-col"><h4>Self-Hosting</h4><div class="foot-links"><a href="https://github.com/xyzmr114/stillhere" target="_blank" rel="noopener">GitHub</a><a href="https://github.com/xyzmr114/stillhere/blob/main/docs/self-hosting.md" target="_blank" rel="noopener">Setup Guide</a><a href="https://github.com/xyzmr114/stillhere/blob/main/docs/env-reference.md" target="_blank" rel="noopener">Env Reference</a><a href="https://github.com/xyzmr114/stillhere/blob/main/docs/netcore.md" target="_blank" rel="noopener">Private Access</a></div></div>
     <div class="foot-col"><h4>Legal &amp; Info</h4><div class="foot-links"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/consent">Consent</a><a href="/contact">Contact</a><a href="/sitemap">Sitemap</a></div></div>
   </div>
   <div class="foot-bottom">
-    <p class="foot-copy">© 2026 Sahaj Tech LLC — Still Here. One-time payment. No subscriptions. Ever.</p>
+    <p class="foot-copy">© 2026 Sahaj Tech LLC — Still Here. 7-day free trial, then $5 forever.</p>
     <p class="foot-copy">Made for people who deserve a safety net.</p>
   </div>
 </footer>

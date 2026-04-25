@@ -21,4 +21,8 @@ def get_current_user(
     user = get_user(db, user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    token_ver = payload.get("ver", 1)
+    user_ver = user.get("token_version", 1)
+    if token_ver != user_ver:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token revoked")
     return user

@@ -13,7 +13,7 @@ if (self.__FIREBASE_CONFIG?.apiKey) {
             body: payload.notification?.body || "",
             icon: "/icons/icon-192.png",
             data: {
-                url: payload.data?.url || "/app",
+                url: payload.data?.url || "/signin",
                 quick_checkin_token: payload.data?.quick_checkin_token
             },
             vibrate: [200, 100, 200],
@@ -34,7 +34,7 @@ self.addEventListener("push", (e) => {
             body: data.body || "",
             icon: "/icons/icon-192.png",
             data: {
-                url: data.url || "/app",
+                url: data.url || "/signin",
                 quick_checkin_token: data.quick_checkin_token
             },
             vibrate: [200, 100, 200],
@@ -65,7 +65,7 @@ self.addEventListener("notificationclick", (event) => {
             );
         }
     } else {
-        event.waitUntil(clients.openWindow(event.notification.data?.url || "/app"));
+        event.waitUntil(clients.openWindow(event.notification.data?.url || "/signin"));
     }
 });
 

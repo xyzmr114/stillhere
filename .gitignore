@@ -79,6 +79,7 @@ devices.db
 sessions/
 state/
 memory/
+cron/
 
 # Internal agent/planning docs (not for public repo)
 .agents/
@@ -90,6 +91,9 @@ SOUL.md
 TOOLS.md
 USER.md
 skills-lock.json
+
+# Public repo fork (has its own .git)
+github/
 
 # Stray root duplicates
 /consent.html

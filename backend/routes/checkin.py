@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -10,6 +10,7 @@ from db import get_session, has_checked_in_today, log_checkin, get_today_checkin
 from dependencies import get_current_user
 from api_key_auth import get_api_key_user, get_optional_user
 from auth import decode_jwt
+from limiter import limiter
 
 router = APIRouter(prefix="/checkin", tags=["checkin"])
 
@@ -41,7 +42,8 @@ class ActivityTimerRequest(BaseModel):
 
 
 @router.post("")
-def do_checkin(body: CheckinRequest = None, user=Depends(get_optional_user), api_key_user=Depends(get_api_key_user), db=Depends(get_session)):
+@limiter.limit("30/minute")
+def do_checkin(request: Request, body: CheckinRequest = None, user=Depends(get_optional_user), api_key_user=Depends(get_api_key_user), db=Depends(get_session)):
     effective_user = api_key_user if api_key_user else user
     if not effective_user:
         raise HTTPException(status_code=401, detail="Authentication required")
@@ -159,10 +161,11 @@ def annual_report(user=Depends(get_current_user), db=Depends(get_session)):
 
 
 @router.post("/quick")
-def quick_checkin(request: QuickCheckinRequest, db=Depends(get_session)):
+@limiter.limit("30/minute")
+def quick_checkin(request: Request, body: QuickCheckinRequest = None, db=Depends(get_session)):
     """One-tap check-in from push notification action using quick-checkin token."""
     try:
-        payload = decode_jwt(request.token)
+        payload = decode_jwt(body.token)
         user_id = payload.get("sub")
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token")
