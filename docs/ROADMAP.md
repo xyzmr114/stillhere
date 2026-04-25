@@ -94,7 +94,7 @@ Mobile: Capacitor (iOS + Android — wraps existing frontend, no rewrite)
 
 ### High — before launch
 - [x] Escalation resolved notice to contacts — contact gets scary "missed check-in" alert, user checks in, contact never hears back ✅
-- [ ] `/signin?verified=1` shows no feedback — email verification redirect lands silently
+- [x] `/signin?verified=1` shows no feedback — email verification redirect lands silently ✅
 - [ ] Email change support — no `email` field in `UserPatch`, users can't update their email
 - [ ] Account deletion confirmation email + notice to contacts
 - [ ] Contact SMS + voice call timing — currently fire simultaneously, should be SMS first with delay before call
