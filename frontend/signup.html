@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign Up — Still Here by Sahaj Tech LLC</title>
+<meta name="description" content="Create your Still Here account. Daily safety check-ins for people who live alone.">
+<meta property="og:title" content="Sign Up — Still Here">
+<meta property="og:description" content="Create your account. Someone always knows you're here.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#080808;--surface:#111111;--surface2:#161616;
+  --border:rgba(255,255,255,0.08);--border-hi:rgba(255,255,255,0.14);
+  --text:#F5F5F5;--dim:rgba(255,255,255,0.55);--muted:rgba(255,255,255,0.25);
+  --red:#FF3B3B;--red-deep:#E02424;--red-glow:rgba(255,59,59,0.12);
+  --green:#4ecca3;--green-glow:rgba(78,204,163,0.1);--green-border:rgba(78,204,163,0.22);
+}
+body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 15% 55%,rgba(220,38,38,0.06) 0%,transparent 55%);pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;inset:0;opacity:0.022;mix-blend-mode:overlay;pointer-events:none;z-index:1;background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyMDAnIGhlaWdodD0nMjAwJz48ZmlsdGVyIGlkPSduJz48ZmVUdXJidWxlbmNlIHR5cGU9J2ZyYWN0YWxOb2lzZScgYmFzZUZyZXF1ZW5jeT0nMC45JyBudW1PY3RhdmVzPSc0JyBzdGl0Y2hUaWxlcz0nc3RpdGNoJy8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9JzIwMCcgaGVpZ2h0PScyMDAnIGZpbHRlcj0ndXJsKCUyM24pJy8+PC9zdmc+")}
+nav{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:16px 48px;background:rgba(8,8,8,0.9);backdrop-filter:blur(18px);border-bottom:1px solid var(--border)}
+.logo{font-family:'Fraunces',serif;font-size:20px;font-weight:800;color:var(--red);letter-spacing:-0.3px;text-decoration:none}
+.nav-links a{font-size:11px;letter-spacing:0.12em;color:var(--muted);text-decoration:none;transition:color .15s;text-transform:uppercase}
+.nav-links a:hover{color:var(--text)}
+.nav-links a+a{margin-left:20px}
+.wrap{position:relative;z-index:2;max-width:520px;margin:0 auto;padding:80px 32px 120px}
+.eyebrow{font-size:11px;letter-spacing:0.2em;color:var(--red);text-transform:uppercase;margin-bottom:16px}
+h1{font-family:'Fraunces',serif;font-size:clamp(32px,5vw,48px);font-weight:900;letter-spacing:-1.5px;margin-bottom:12px;line-height:1.05}
+.sub{font-size:13px;line-height:1.8;color:var(--dim);margin-bottom:40px}
+.form-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;margin-bottom:24px}
+label{display:block;font-size:12px;letter-spacing:0.08em;color:var(--dim);margin-bottom:6px;text-transform:uppercase}
+input[type="text"],input[type="email"],input[type="tel"],input[type="password"]{display:block;width:100%;padding:14px 16px;background:var(--bg);border:1px solid var(--border-hi);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:14px;margin-bottom:20px;transition:border-color .15s}
+input:focus{outline:none;border-color:var(--red)}
+input::placeholder{color:var(--muted)}
+.phone-wrap{display:flex;gap:0;margin-bottom:20px}
+.phone-prefix{display:flex;align-items:center;gap:6px;padding:14px 14px;background:var(--surface2);border:1px solid var(--border-hi);border-right:none;border-radius:6px 0 0 6px;font-family:'DM Mono',monospace;font-size:14px;color:var(--dim);white-space:nowrap;user-select:none}
+.phone-prefix .flag{font-size:18px;line-height:1}
+.phone-wrap input[type="tel"]{border-radius:0 6px 6px 0;margin-bottom:0;flex:1}
+
+.consent-group{margin-bottom:24px;padding:20px;background:rgba(255,59,59,0.04);border:1px solid rgba(255,59,59,0.12);border-radius:8px}
+.consent-group h3{font-family:'Fraunces',serif;font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text)}
+.consent-item{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+.consent-item:last-child{margin-bottom:0}
+.consent-item input[type="checkbox"]{flex-shrink:0;width:18px;height:18px;margin-top:2px;accent-color:var(--red);cursor:pointer}
+.consent-item span{font-size:13px;line-height:1.6;color:var(--dim)}
+.consent-item a{color:var(--red);text-decoration:none}
+.consent-item a:hover{text-decoration:underline}
+
+.sms-details{margin-top:16px;padding:16px;background:var(--bg);border-radius:6px;border:1px solid var(--border)}
+.sms-details p{font-size:12px;line-height:1.7;color:var(--muted);margin-bottom:6px}
+.sms-details p:last-child{margin-bottom:0}
+.sms-details strong{color:var(--dim);font-weight:500}
+
+.btn-submit{display:block;width:100%;padding:16px 24px;background:var(--red);color:#fff;border:none;border-radius:6px;font-family:'DM Mono',monospace;font-size:14px;font-weight:500;letter-spacing:0.06em;cursor:pointer;transition:all .15s}
+.btn-submit:hover{background:var(--red-deep);transform:translateY(-1px)}
+.btn-submit:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+
+.error{color:var(--red);font-size:13px;margin-bottom:16px;display:none}
+.success-card{display:none;text-align:center;padding:48px 32px}
+.success-card .check{font-size:48px;margin-bottom:16px}
+.success-card h2{font-family:'Fraunces',serif;font-size:28px;font-weight:900;margin-bottom:12px;color:var(--green)}
+.success-card p{font-size:13px;line-height:1.8;color:var(--dim);margin-bottom:24px}
+.success-card a{display:inline-block;padding:14px 28px;background:var(--red);color:#fff;border-radius:6px;font-family:'DM Mono',monospace;font-size:13px;text-decoration:none;transition:background .15s}
+.success-card a:hover{background:var(--red-deep)}
+
+.legal-note{font-size:11px;color:var(--muted);line-height:1.7;text-align:center;margin-top:24px}
+.legal-note a{color:var(--red);text-decoration:none}
+.legal-note a:hover{text-decoration:underline}
+
+footer{text-align:center;padding:32px 48px;border-top:1px solid var(--border);position:relative;z-index:2}
+footer p{font-size:12px;color:var(--muted)}
+footer a{color:var(--red);text-decoration:none}
+footer a:hover{text-decoration:underline}
+@media(max-width:640px){nav{padding:14px 20px}.wrap{padding:48px 20px 80px}.form-card{padding:24px 20px}}
+</style>
+</head>
+<body>
+<nav>
+  <a class="logo" href="/">Still Here</a>
+  <div class="nav-links"><a href="/">Home</a><a href="/signin">Log In</a></div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">Get started</div>
+  <h1>Create your account</h1>
+  <p class="sub">Still Here checks on you every day. Miss a check-in and we notify your emergency contacts. <strong style="color:var(--green)">7-day free trial</strong> — no card required.</p>
+
+  <div id="signup-form">
+    <div class="form-card">
+      <p class="error" id="form-error"></p>
+
+      <label for="f-name">Full name</label>
+      <input type="text" id="f-name" placeholder="Jane Doe" autocomplete="name" required>
+
+      <label for="f-email">Email address</label>
+      <input type="email" id="f-email" placeholder="jane@example.com" autocomplete="email" required>
+
+      <label for="f-phone">Phone number <span style="color:var(--muted);text-transform:none;letter-spacing:0">(optional · US only)</span></label>
+      <div class="phone-wrap">
+        <div class="phone-prefix"><span class="flag">&#x1F1FA;&#x1F1F8;</span> +1</div>
+        <input type="tel" id="f-phone" placeholder="(555) 123-4567" autocomplete="tel" maxlength="14" inputmode="numeric">
+      </div>
+
+      <label for="f-password">Password</label>
+      <input type="password" id="f-password" placeholder="8+ characters" autocomplete="new-password" required>
+
+      <div class="consent-group">
+        <h3>Consent</h3>
+
+        <div class="consent-item">
+          <input type="checkbox" id="c-tos" required>
+          <span>I agree to the <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.</span>
+        </div>
+
+        <div id="sms-consent-block" style="display:none">
+          <div class="consent-item">
+            <input type="checkbox" id="c-sms">
+            <span>I consent to receive SMS and voice messages from <strong>Sahaj Tech LLC</strong> (operating as Still Here) at the phone number provided above. These include daily check-in reminders, missed check-in alerts, and account security messages. Message frequency varies; typically 1–2 messages per day. Message and data rates may apply. Reply STOP to cancel, HELP for help. Consent is not a condition of purchase.</span>
+          </div>
+
+          <div class="sms-details">
+            <p><strong>Provider:</strong> Sahaj Tech LLC via Twilio</p>
+            <p><strong>Frequency:</strong> Up to 2 msgs/day (check-in reminders + alerts)</p>
+            <p><strong>Opt-out:</strong> Reply STOP to any message, or disable in <a href="/signin" style="color:var(--red)">account settings</a></p>
+            <p><strong>Help:</strong> Reply HELP or email <a href="mailto:hello@stillherehq.com" style="color:var(--red)">hello@stillherehq.com</a></p>
+            <p>Full SMS policy: <a href="/consent" style="color:var(--red)">stillherehq.com/consent</a></p>
+          </div>
+        </div>
+      </div>
+
+      <button type="button" class="btn-submit" id="submit-btn" disabled>Create Account</button>
+    </div>
+  </div>
+
+  <div class="success-card" id="success-card">
+    <div class="check">🛡️</div>
+    <h2>You're in.</h2>
+    <p>Account created. Open the app to set your check-in time, add emergency contacts, and finish setup.</p>
+    <a href="/signin">Open Still Here →</a>
+  </div>
+
+  <p class="legal-note">
+    By creating an account you agree to the <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>. If you add a phone number, SMS consent is required. <a href="/consent">SMS Policy</a>
+  </p>
+</div>
+
+<footer>
+  <p>&copy; 2026 Sahaj Tech LLC &mdash; Still Here &mdash; <a href="/terms">Terms</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/consent">Consent</a> &middot; <a href="/contact">Contact</a></p>
+</footer>
+
+<script>
+const API = window.location.origin;
+const tosBox = document.getElementById("c-tos");
+const smsBox = document.getElementById("c-sms");
+const smsBlock = document.getElementById("sms-consent-block");
+const btn = document.getElementById("submit-btn");
+const errEl = document.getElementById("form-error");
+const phoneIn = document.getElementById("f-phone");
+
+// Show/hide SMS consent based on phone input
+function updateSmsVisibility() {
+    const hasPhone = phoneIn.value.replace(/\D/g, "").length > 0;
+    smsBlock.style.display = hasPhone ? "" : "none";
+    if (!hasPhone) smsBox.checked = false;
+    checkReady();
+}
+
+// Auto-format phone as (XXX) XXX-XXXX
+phoneIn.addEventListener("input", () => {
+    let digits = phoneIn.value.replace(/\D/g, "").slice(0, 10);
+    if (digits.length > 6) digits = "(" + digits.slice(0,3) + ") " + digits.slice(3,6) + "-" + digits.slice(6);
+    else if (digits.length > 3) digits = "(" + digits.slice(0,3) + ") " + digits.slice(3);
+    else if (digits.length > 0) digits = "(" + digits;
+    phoneIn.value = digits;
+    updateSmsVisibility();
+});
+
+function checkReady() {
+    const name = document.getElementById("f-name").value.trim();
+    const email = document.getElementById("f-email").value.trim();
+    const rawPhone = phoneIn.value.replace(/\D/g, "");
+    const pass = document.getElementById("f-password").value;
+    const hasPhone = rawPhone.length > 0;
+    const phoneOk = !hasPhone || (rawPhone.length === 10 && smsBox.checked);
+    btn.disabled = !(name && email && pass.length >= 8 && tosBox.checked && phoneOk);
+}
+
+document.querySelectorAll("#signup-form input").forEach(el => {
+    el.addEventListener("input", checkReady);
+    el.addEventListener("change", checkReady);
+});
+
+btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    errEl.style.display = "none";
+
+    const name = document.getElementById("f-name").value.trim();
+    const email = document.getElementById("f-email").value.trim();
+    const rawDigits = phoneIn.value.replace(/\D/g, "");
+    const password = document.getElementById("f-password").value;
+    const hasPhone = rawDigits.length > 0;
+
+    if (hasPhone && rawDigits.length !== 10) {
+        errEl.textContent = "Enter a valid 10-digit US phone number";
+        errEl.style.display = "block";
+        btn.disabled = false;
+        return;
+    }
+    if (hasPhone && !smsBox.checked) {
+        errEl.textContent = "SMS consent is required when providing a phone number";
+        errEl.style.display = "block";
+        btn.disabled = false;
+        return;
+    }
+    const phone = hasPhone ? "+1" + rawDigits : null;
+
+    try {
+        const res = await fetch(`${API}/users/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email, password, phone, accepted_tos: true }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Registration failed");
+
+        localStorage.setItem("token", data.token);
+
+        if (hasPhone) {
+            await fetch(`${API}/users/me`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${data.token}`,
+                },
+                body: JSON.stringify({ notify_sms: true }),
+            }).catch(() => {});
+        }
+
+        document.getElementById("signup-form").style.display = "none";
+        document.getElementById("success-card").style.display = "block";
+    } catch (e) {
+        errEl.textContent = e.message;
+        errEl.style.display = "block";
+        btn.disabled = false;
+    }
+});
+</script>
+</body>
+</html>
