@@ -1,4 +1,3 @@
-import json
 import logging
 
 import stripe
@@ -9,6 +8,7 @@ from sqlalchemy import text
 from config import settings
 from db import SessionLocal, get_session
 from dependencies import get_current_user
+from limiter import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ stripe.api_key = settings.stripe_secret_key
 
 router = APIRouter(prefix="/stripe", tags=["stripe"])
 
-SUCCESS_URL = settings.base_url + "/app?paid=1"
+SUCCESS_URL = settings.base_url + "/signin?paid=1"
 CANCEL_URL = settings.base_url + "/"
 
 LINE_ITEMS = [{
@@ -33,7 +33,8 @@ LINE_ITEMS = [{
 
 
 @router.post("/checkout")
-def create_checkout_session(user=Depends(get_current_user)):
+@limiter.limit("5/minute")
+def create_checkout_session(request: Request, user=Depends(get_current_user)):
     if user.get("has_paid"):
         raise HTTPException(status_code=400, detail="Already paid")
     if not settings.stripe_secret_key:
@@ -54,10 +55,11 @@ def create_checkout_session(user=Depends(get_current_user)):
 
 
 @router.get("/buy")
-def public_checkout():
+@limiter.limit("5/minute")
+def public_checkout(request: Request):
     """Unauthenticated checkout — anyone can pay directly. Webhook matches by email."""
     if not settings.stripe_secret_key:
-        return RedirectResponse("/app")
+        return RedirectResponse("/signin")
     try:
         session = stripe.checkout.Session.create(
             mode="payment",
@@ -69,7 +71,7 @@ def public_checkout():
         return RedirectResponse(session.url)
     except stripe.error.StripeError as e:
         logger.error("Public checkout failed: %s", e)
-        return RedirectResponse("/app")
+        return RedirectResponse("/signin")
 
 
 @router.post("/webhook")
@@ -86,32 +88,58 @@ async def stripe_webhook(request: Request):
             logger.exception("Failed to construct Stripe webhook event")
             raise HTTPException(status_code=400, detail="Webhook error")
     else:
-        try:
-            event = json.loads(body)
-        except Exception:
-            logger.exception("Failed to parse webhook payload as JSON")
-            raise HTTPException(status_code=400, detail="Invalid payload")
+        logger.critical("Stripe webhook secret not configured - rejecting webhook")
+        raise HTTPException(status_code=500, detail="Stripe webhook secret not configured")
 
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
         user_id = session.get("client_reference_id")
+        session_id = session.get("id")
         customer_email = session.get("customer_email") or (
             session.get("customer_details") or {}
         ).get("email")
         db = SessionLocal()
         try:
             if user_id:
-                db.execute(
-                    text("UPDATE users SET has_paid = true WHERE id::text = :uid"),
-                    {"uid": user_id},
-                )
+                row = db.execute(
+                    text(
+                        "UPDATE users SET has_paid = true, paid_at = NOW(), "
+                        "stripe_session_id = :sid, stripe_customer_email = :email "
+                        "WHERE id::text = :uid AND has_paid = false "
+                        "RETURNING email, name"
+                    ),
+                    {"uid": user_id, "sid": session_id, "email": customer_email},
+                ).first()
                 db.commit()
+                if row:
+                    logger.info("Payment recorded for user_id=%s session=%s", user_id, session_id)
+                    try:
+                        from services.email_svc import send_payment_confirmation_email
+                        send_payment_confirmation_email(row.email, row.name or "there")
+                    except Exception:
+                        logger.exception("Failed to send payment confirmation email for user_id=%s", user_id)
             elif customer_email:
-                db.execute(
-                    text("UPDATE users SET has_paid = true WHERE email = :email"),
-                    {"email": customer_email},
-                )
+                result = db.execute(
+                    text(
+                        "UPDATE users SET has_paid = true, paid_at = NOW(), "
+                        "stripe_session_id = :sid, stripe_customer_email = :email "
+                        "WHERE email = :match_email AND has_paid = false "
+                        "RETURNING id, name"
+                    ),
+                    {"sid": session_id, "email": customer_email, "match_email": customer_email},
+                ).first()
                 db.commit()
+                if result:
+                    logger.info("Payment recorded via email match=%s session=%s", customer_email, session_id)
+                    try:
+                        from services.email_svc import send_payment_confirmation_email
+                        send_payment_confirmation_email(customer_email, result.name or "there")
+                    except Exception:
+                        logger.exception("Failed to send payment confirmation email for email=%s", customer_email)
+                else:
+                    logger.warning("Payment received but no matching unpaid user for email=%s session=%s", customer_email, session_id)
+            else:
+                logger.warning("Payment received with no user_id or email, session=%s", session_id)
         finally:
             db.close()
 

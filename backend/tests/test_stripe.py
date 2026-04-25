@@ -140,3 +140,34 @@ def test_webhook_email_fallback():
             assert "a@b.com" in str(call_args)
     finally:
         app.dependency_overrides.clear()
+
+
+def test_webhook_rejects_when_secret_not_configured():
+    """Test that webhook rejects requests when STRIPE_WEBHOOK_SECRET is not configured.
+    
+    Per SPEC.md: If stripe_webhook_secret is NOT set, return HTTP 500 with
+    {"detail": "Stripe webhook secret not configured"} and log a CRITICAL message.
+    """
+    from main import app
+    from unittest.mock import PropertyMock
+    try:
+        with patch("routes.stripe_payments.settings") as mock_settings, \
+             patch("routes.stripe_payments.logger") as mock_logger:
+            # Simulate missing webhook secret
+            type(mock_settings).stripe_webhook_secret = PropertyMock(return_value="")
+            
+            client = TestClient(app)
+            resp = client.post(
+                "/stripe/webhook",
+                content=b'{"type": "checkout.session.completed"}',
+                headers={},  # No stripe-signature header
+            )
+            
+            assert resp.status_code == 500
+            assert resp.json() == {"detail": "Stripe webhook secret not configured"}
+            
+            # Verify CRITICAL log was emitted
+            mock_logger.critical.assert_called_once()
+            assert "not configured" in mock_logger.critical.call_args[0][0]
+    finally:
+        app.dependency_overrides.clear()
