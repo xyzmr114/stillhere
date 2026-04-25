@@ -258,6 +258,22 @@ def contact_alert(user_name: str, confirm_url: str) -> str:
     return base_email(content)
 
 
+def contact_all_clear(user_name: str) -> str:
+    """
+    All-clear email sent to contacts when user checks in after escalation.
+
+    Args:
+        user_name: User who checked in
+
+    Returns:
+        HTML email content
+    """
+    content = f"""<h1 style="font-size:22px;font-weight:700;color:{EMAIL_BRAND_SECONDARY};margin:0 0 12px">All Clear</h1>
+    <p style="font-size:14px;color:{EMAIL_TEXT_SECONDARY};line-height:1.6;margin:0 0 28px">{user_name} checked in — no action needed. They are safe.</p>
+    <p style="font-size:12px;color:{EMAIL_TEXT_TERTIARY};line-height:1.6">The earlier alert was a false alarm. You don't need to do anything.</p>"""
+    return base_email(content, brand_color=EMAIL_BRAND_SECONDARY)
+
+
 def weekly_digest(user_name: str, count: int) -> str:
     """
     Weekly check-in report sent to user every Monday.

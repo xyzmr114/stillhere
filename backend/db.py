@@ -155,6 +155,12 @@ def log_escalation_event(db, user_id: str, stage: str, confirmation_token: str =
 
 
 def resolve_escalations(db, user_id: str):
+    rows = db.execute(
+        text(
+            "SELECT id FROM escalation_events WHERE user_id = :uid AND resolved = FALSE AND stage = 'contacts_notified'"
+        ),
+        {"uid": user_id},
+    ).mappings().all()
     db.execute(
         text(
             "UPDATE escalation_events SET resolved = TRUE, resolved_at = NOW() WHERE user_id = :uid AND resolved = FALSE"
@@ -162,6 +168,9 @@ def resolve_escalations(db, user_id: str):
         {"uid": user_id},
     )
     db.commit()
+    for row in rows:
+        from tasks.escalation import notify_contacts_all_clear
+        notify_contacts_all_clear.delay(user_id, str(row["id"]))
 
 
 def get_active_escalation(db, user_id: str):

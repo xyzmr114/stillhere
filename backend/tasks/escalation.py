@@ -402,6 +402,50 @@ def call_non_emergency_task(user_id: str):
 
 
 @celery_app.task
+def notify_contacts_all_clear(user_id: str, escalation_event_id: str):
+    import logging
+    from db import get_contacts, log_audit_event
+    from services.sns_svc import send_sms
+    from services.email_svc import _send_email
+    from email_templates import contact_all_clear
+
+    logger = logging.getLogger(__name__)
+    db = _db()
+    try:
+        evt = db.execute(
+            text("SELECT stage FROM escalation_events WHERE id::text = :eid"),
+            {"eid": escalation_event_id},
+        ).mappings().first()
+        if not evt or evt["stage"] != "contacts_notified":
+            return
+        user = db.execute(
+            text("SELECT name FROM users WHERE id::text = :uid"),
+            {"uid": user_id},
+        ).mappings().first()
+        if not user:
+            return
+        user_name = user["name"] or "Someone"
+        contacts = get_contacts(db, user_id)
+        for c in contacts:
+            if c.get("phone"):
+                try:
+                    send_sms(c["phone"], f"\u2705 {user_name} checked in \u2014 no action needed. They are safe.")
+                except Exception:
+                    logger.exception("Failed to send all-clear SMS to contact %s", c["id"])
+            if c.get("email"):
+                try:
+                    email_html = contact_all_clear(user_name)
+                    _send_email(c["email"], f"All Clear: {user_name} checked in", email_html)
+                except Exception:
+                    logger.exception("Failed to send all-clear email to contact %s", c["id"])
+        log_audit_event(db, user_id, "escalation_cleared", {"escalation_event_id": escalation_event_id})
+    except Exception:
+        logger.exception("notify_contacts_all_clear failed for user=%s event=%s", user_id, escalation_event_id)
+    finally:
+        db.close()
+
+
+@celery_app.task
 def send_weekly_digest():
     from services.email_svc import _send_email
     from email_templates import weekly_digest
