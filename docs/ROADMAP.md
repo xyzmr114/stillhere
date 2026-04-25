@@ -88,9 +88,9 @@ Mobile: Capacitor (iOS + Android — wraps existing frontend, no rewrite)
 
 ### Critical — blocks launch
 - [x] Stripe webhook must reject unsigned payloads — if `STRIPE_WEBHOOK_SECRET` is empty, anyone can fake a payment. Require signature verification unconditionally in production
-- [ ] Gate escalation on `email_verified = TRUE` — typo at signup causes real contacts to be notified for a bogus account
+- [x] Gate escalation on `email_verified = TRUE` — typo at signup causes real contacts to be notified for a bogus account
 - [x] Twilio inbound STOP webhook — no route handles opt-out replies. DB keeps `notify_sms = true`, sends keep firing. Compliance blocker (POST /webhooks/twilio/sms with HMAC-SHA1 signature validation, handles STOP/START keywords, updates users.notify_sms)
-- [ ] Clean dead JS listeners — `app.js` still attaches handlers to `#reg-name`, `#reg-email` etc. from removed register form. Silent exceptions on every page load
+- [x] Clean dead JS listeners — `app.js` still attaches handlers to `#reg-name`, `#reg-email` etc. from removed register form. Silent exceptions on every page load
 
 ### High — before launch
 - [ ] Escalation resolved notice to contacts — contact gets scary "missed check-in" alert, user checks in, contact never hears back
