@@ -18,3 +18,4 @@ pywebpush
 py-vapid
 aiosmtplib
 slowapi
+python-multipart
