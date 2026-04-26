@@ -460,6 +460,13 @@
                             <p id="profile-name" class="profile-field"></p>
                             <p id="profile-email" class="profile-field"></p>
                         </div>
+                        <label>Email
+                            <input type="email" id="setting-email" value="" placeholder="your@email.com">
+                            <span id="setting-email-error" class="error-text" style="font-size:12px;display:block;margin-top:4px"></span>
+                        </label>
+                        <div id="email-verification-banner" style="display:none;margin-top:12px;padding:10px 14px;background:rgba(78,204,163,0.1);border:1px solid var(--success);border-radius:8px;font-size:13px;color:var(--success)">
+                            Please verify your new email — a verification link was sent to <span id="email-verification-sent-to"></span>
+                        </div>
                     </div>
                     <div class="settings-card">
                         <h3 class="section-title">Snooze</h3>

@@ -260,19 +260,41 @@ document.getElementById("save-settings-btn").addEventListener("click", async () 
     const contact_grace_hours = parseInt(document.getElementById("setting-contact-grace").value);
     const confirm_by_minutes = parseInt(document.getElementById("setting-confirm-by").value);
     const streak_reminder_hours = parseInt(document.getElementById("setting-streak-reminder").value);
+    const email = document.getElementById("setting-email").value.trim() || null;
+    document.getElementById("settings-error").textContent = "";
+    document.getElementById("setting-email-error").textContent = "";
     if (!checkin_time || isNaN(grace_minutes) || isNaN(retry_count) || isNaN(retry_interval_hours) || isNaN(contact_grace_hours) || isNaN(confirm_by_minutes)) {
         document.getElementById("settings-error").textContent = "Please fill in all settings";
         return;
     }
     try {
-        await api("/users/me", {
+        const payload = { checkin_time, grace_minutes, retry_count, retry_interval_hours, contact_grace_hours, confirm_by_minutes, streak_reminder_hours };
+        if (email) payload.email = email;
+        const updated = await api("/users/me", {
             method: "PATCH",
-            body: JSON.stringify({ checkin_time, grace_minutes, retry_count, retry_interval_hours, contact_grace_hours, confirm_by_minutes, streak_reminder_hours }),
+            body: JSON.stringify(payload),
         });
         document.getElementById("settings-error").textContent = "";
+        // Reload settings to refresh email verification state
+        document.getElementById("setting-email").value = updated.email || "";
+        document.getElementById("profile-email").textContent = updated.email || "";
+        const emailBanner = document.getElementById("email-verification-banner");
+        const emailSentTo = document.getElementById("email-verification-sent-to");
+        if (updated.email_verified === false || updated.email_verified === null) {
+            if (emailBanner && emailSentTo) {
+                emailSentTo.textContent = updated.email || "";
+                emailBanner.style.display = "";
+            }
+        } else {
+            if (emailBanner) emailBanner.style.display = "none";
+        }
         showToast("Settings saved", "success");
     } catch (e) {
-        document.getElementById("settings-error").textContent = e.message;
+        if (e.message && e.message.includes("Email already in use")) {
+            document.getElementById("setting-email-error").textContent = "This email is already registered.";
+        } else {
+            document.getElementById("settings-error").textContent = e.message;
+        }
     }
 });
 
@@ -433,6 +455,18 @@ async function loadMain() {
     _currentUser = me;
     document.getElementById("profile-name").textContent = me.name || "";
     document.getElementById("profile-email").textContent = me.email || "";
+    document.getElementById("setting-email").value = me.email || "";
+    // Show banner if email is unverified
+    const emailBanner = document.getElementById("email-verification-banner");
+    const emailSentTo = document.getElementById("email-verification-sent-to");
+    if (me.email_verified === false || me.email_verified === null) {
+        if (emailBanner && emailSentTo) {
+            emailSentTo.textContent = me.email || "";
+            emailBanner.style.display = "";
+        }
+    } else {
+        if (emailBanner) emailBanner.style.display = "none";
+    }
     document.getElementById("setting-checkin-time").value = (me.checkin_time || "09:00").slice(0, 5);
     document.getElementById("setting-grace").value = me.grace_minutes || 120;
     document.getElementById("setting-retries").value = me.retry_count || 3;

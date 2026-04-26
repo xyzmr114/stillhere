@@ -65,6 +65,7 @@ def _decode_reset_token(token: str):
 
 
 class UserPatch(BaseModel):
+    email: EmailStr = None
     name: str = None
     phone: str = None
     checkin_time: str = None
@@ -198,6 +199,15 @@ def update_me(body: UserPatch, user=Depends(get_current_user), db=Depends(get_se
             raise HTTPException(status_code=400, detail="Invalid phone number")
         raw["phone"] = valid_phone
 
+    # Handle email change
+    if "email" in raw and raw["email"] is not None:
+        if raw["email"] != user.get("email"):
+            # Check uniqueness
+            existing = get_user_by_email(db, raw["email"])
+            if existing and str(existing["id"]) != str(user["id"]):
+                raise HTTPException(status_code=400, detail="Email already in use")
+            # Will send verification email and bump token_version after update
+
     # Validate quiet hours: both or neither
     qh_start = raw.get("quiet_hours_start")
     qh_end = raw.get("quiet_hours_end")
@@ -237,7 +247,7 @@ def update_me(body: UserPatch, user=Depends(get_current_user), db=Depends(get_se
     if fields.get("is_dormant") is False:
         fields["last_device_ping"] = "NOW()"
     ALLOWED_COLUMNS = {
-        "name", "phone", "checkin_time", "grace_minutes", "retry_count",
+        "name", "phone", "email", "checkin_time", "grace_minutes", "retry_count",
         "retry_interval_hours", "device_token", "snooze_until",
         "confirm_by_minutes", "streak_reminder_hours", "vacation_start",
         "vacation_end", "is_dormant", "contact_grace_hours",
@@ -259,6 +269,17 @@ def update_me(body: UserPatch, user=Depends(get_current_user), db=Depends(get_se
     clean_fields = {k: v for k, v in fields.items() if k != "_accept_tos"}
     clean_fields["uid"] = str(user["id"])
     db.execute(text(f"UPDATE users SET {sets} WHERE id::text = :uid"), clean_fields)
+
+    # Handle email change side-effects: bump token, reset verified, send verification
+    email_changed = "email" in raw and raw["email"] is not None and raw["email"] != user.get("email")
+    if email_changed:
+        db.execute(text("UPDATE users SET token_version = token_version + 1, email_verified = FALSE WHERE id::text = :uid"), {"uid": str(user["id"])})
+        try:
+            from services.email_svc import send_verification_email
+            send_verification_email(raw["email"], user["name"], str(user["id"]))
+        except Exception:
+            logger.exception("Failed to send verification email for user %s after email change", str(user["id"]))
+
     db.commit()
     from db import get_user
 
