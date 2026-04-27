@@ -11,6 +11,7 @@ from constants import (
     VERIFICATION_TOKEN_EXPIRATION_HOURS,
     CHECKIN_TOKEN_EXPIRATION_HOURS,
     PASSWORD_RESET_TOKEN_EXPIRATION_HOURS,
+    DELETION_TOKEN_EXPIRATION_HOURS,
 )
 from email_templates import (
     verification,
@@ -188,3 +189,19 @@ def send_password_reset_email(to_email: str, user_name: str, reset_token: str):
 def send_reengagement_email(to_email: str, user_name: str):
     html = reengagement(user_name)
     return _send_email(to_email, "We miss you — is everything okay?", html)
+
+
+# ── Deletion email ─────────────────────────────────────────────────────────────
+
+def send_deletion_confirmation_email(to_email: str, user_name: str, deletion_url: str):
+    """Send account deletion confirmation email with time-limited link."""
+    from email_templates import account_deletion_confirmation
+    html = account_deletion_confirmation(user_name, deletion_url)
+    return _send_email(to_email, "Confirm Account Deletion — Still Here", html)
+
+
+def send_user_left_notification_email(to_email: str, contact_name: str, user_name: str):
+    """Notify contact that user has deleted their Still Here account."""
+    from email_templates import user_left_notification
+    html = user_left_notification(contact_name, user_name)
+    return _send_email(to_email, f"{user_name} has left Still Here", html)

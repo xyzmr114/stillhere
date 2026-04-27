@@ -341,3 +341,39 @@ def contact_welcome(contact_name: str, user_name: str, portal_url: str | None = 
     <p style="font-size:13px;color:rgba(255,255,255,0.4);line-height:1.6;margin-bottom:24px">Most days you'll hear nothing from us.</p>
     {portal_btn}"""
     return base_email(content)
+
+
+def account_deletion_confirmation(user_name: str, deletion_url: str) -> str:
+    """
+    Account deletion confirmation email sent to user when they request deletion.
+
+    Args:
+        user_name: User's display name
+        deletion_url: URL containing the time-limited deletion token
+
+    Returns:
+        HTML email content
+    """
+    content = f"""<h1 style="font-size:22px;font-weight:700;color:{EMAIL_TEXT_PRIMARY};margin:0 0 12px">Confirm Account Deletion</h1>
+    <p style="font-size:14px;color:{EMAIL_TEXT_SECONDARY};line-height:1.6;margin:0 0 28px">Hey {user_name}, you requested to delete your Still Here account. Click below to confirm — this link expires in 1 hour.</p>
+    <a href="{deletion_url}" style="display:block;text-align:center;padding:14px 28px;background:{EMAIL_BRAND_PRIMARY};color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;margin-bottom:24px">Delete My Account →</a>
+    <p style="font-size:12px;color:{EMAIL_TEXT_TERTIARY};line-height:1.6">If you didn't request this, ignore this email. Your account will remain active.</p>"""
+    return base_email(content)
+
+
+def user_left_notification(contact_name: str, user_name: str) -> str:
+    """
+    Notification sent to emergency contacts when a user deletes their account.
+
+    Args:
+        contact_name: Contact's display name
+        user_name: Name of the user who deleted their account
+
+    Returns:
+        HTML email content
+    """
+    content = f"""<h1 style="font-size:22px;font-weight:700;color:{EMAIL_TEXT_PRIMARY};margin:0 0 12px">Someone left Still Here</h1>
+    <p style="font-size:14px;color:{EMAIL_TEXT_SECONDARY};line-height:1.6;margin:0 0 28px">Hi {contact_name}, {user_name} has deleted their Still Here account. You're no longer their emergency contact.</p>
+    <p style="font-size:13px;color:{EMAIL_TEXT_SECONDARY};line-height:1.7;margin:0 0 24px">This means their daily check-ins have stopped, and you will no longer receive alerts on their behalf.</p>
+    <p style="font-size:12px;color:{EMAIL_TEXT_TERTIARY};line-height:1.6">If you believe this was done in error, you can reach out to {user_name} directly.</p>"""
+    return base_email(content)

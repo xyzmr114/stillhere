@@ -24,6 +24,9 @@ CONTACT_RECHECK_DELAY_SECONDS = 7200  # 2 hours
 # Recurring user confirmation prompt
 CONTACT_GRACE_TIMEOUT_RECHECK_SECONDS = 14400  # 4 hours
 
+# Delay after SMS/email before making welfare check call to contacts
+CONTACT_CALL_DELAY_SECONDS = 60  # 1 minute
+
 
 # ── Escalation Defaults (user-configurable, in minutes/hours) ───────────────
 
@@ -86,6 +89,9 @@ CHECKIN_TOKEN_EXPIRATION_HOURS = 24
 
 # Password reset token expiration
 PASSWORD_RESET_TOKEN_EXPIRATION_HOURS = 1
+
+# Deletion confirmation token expiration
+DELETION_TOKEN_EXPIRATION_HOURS = 1
 
 
 # ── UI/UX Constants ──────────────────────────────────────────────────────────

@@ -321,6 +321,108 @@ def delete_account(user=Depends(get_current_user), db=Depends(get_session)):
     return {"ok": True}
 
 
+@router.post("/me/delete/request")
+@limiter.limit("3/minute")
+def request_account_deletion(request: Request, user=Depends(get_current_user), db=Depends(get_session)):
+    """Request a deletion confirmation email. Invalidates any previous pending token."""
+    import uuid
+    from datetime import timedelta
+    from constants import DELETION_TOKEN_EXPIRATION_HOURS
+    from db import create_deletion_token
+
+    uid = str(user["id"])
+    token = str(uuid.uuid4())
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=DELETION_TOKEN_EXPIRATION_HOURS)
+
+    create_deletion_token(db, uid, token, expires_at)
+
+    try:
+        from services.email_svc import send_deletion_confirmation_email
+        deletion_url = f"{settings.base_url}/users/me/delete/confirm/{token}"
+        send_deletion_confirmation_email(user["email"], user["name"], deletion_url)
+    except Exception:
+        logger.exception("Failed to send deletion confirmation email for user %s", uid)
+
+    return {"message": "Confirmation email sent"}
+
+
+@router.get("/me/delete/confirm/{token}")
+def confirm_account_deletion(token: str, db=Depends(get_session)):
+    """Validate token and delete account, notifying emergency contacts."""
+    from db import get_deletion_token, mark_deletion_token_used, delete_user_account, get_contacts
+
+    record = get_deletion_token(db, token)
+    if not record:
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(
+            content="<html><body><h1>Link expired or invalid</h1><p>This deletion link is invalid or has already been used.</p></body></html>",
+            status_code=400,
+        )
+
+    # Check expiry
+    if datetime.now(timezone.utc) > record["expires_at"]:
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(
+            content="<html><body><h1>Link expired or invalid</h1><p>This deletion link has expired. Please request a new one from your account settings.</p></body></html>",
+            status_code=400,
+        )
+
+    # Check already-used
+    if record.get("used_at"):
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(
+            content="<html><body><h1>Account already deleted</h1><p>This link has already been used. Your account was deleted.</p></body></html>",
+            status_code=400,
+        )
+
+    user_id = str(record["user_id"])
+
+    # Fetch user info before deletion for contact notifications
+    from db import get_user
+    user = get_user(db, user_id)
+    user_name = user["name"] if user else "A former user"
+
+    # Mark token used FIRST to prevent double-deletion
+    mark_deletion_token_used(db, token)
+
+    # Notify contacts BEFORE deleting the user
+    contacts = get_contacts(db, user_id)
+    _notify_contacts_user_left(db, user_id, user_name, contacts)
+
+    # Now delete the account
+    delete_user_account(db, user_id)
+
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(
+        content="<html><body><h1>Your account has been deleted.</h1><p>We're sorry to see you go. If you wish to rejoin, you may create a new account at any time.</p></body></html>",
+        status_code=200,
+    )
+
+
+def _notify_contacts_user_left(db, user_id: str, user_name: str, contacts: list):
+    """Send SMS and email to each emergency contact notifying them the user left."""
+    if not contacts:
+        return
+    try:
+        from services.sns_svc import send_sms
+        from services.email_svc import send_user_left_notification_email
+        for contact in contacts:
+            contact_name = contact.get("name", "Your contact")
+            msg = f"Hi {contact_name}, {user_name} has deleted their Still Here account. You're no longer their emergency contact."
+            if contact.get("phone"):
+                try:
+                    send_sms(contact["phone"], msg)
+                except Exception:
+                    logger.exception("Failed to send SMS to contact %s", contact["id"])
+            if contact.get("email"):
+                try:
+                    send_user_left_notification_email(contact["email"], contact_name, user_name)
+                except Exception:
+                    logger.exception("Failed to send email to contact %s", contact["id"])
+    except Exception:
+        logger.exception("Failed to notify contacts for user %s during deletion", user_id)
+
+
 @router.post("/forgot-password")
 @limiter.limit("3/minute")
 def forgot_password(request: Request, body: ForgotPasswordIn, db=Depends(get_session)):

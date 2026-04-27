@@ -15,12 +15,19 @@ from constants import (
     CONTACT_CHECK_DELAY_SECONDS,
     CONTACT_RECHECK_DELAY_SECONDS,
     CONTACT_GRACE_TIMEOUT_RECHECK_SECONDS,
+    CONTACT_CALL_DELAY_SECONDS,
     NON_EMERGENCY_CALL_RATE_LIMIT_HOURS,
     DORMANT_ACCOUNT_THRESHOLD_DAYS,
     DORMANT_REENGAGEMENT_THRESHOLD_DAYS,
     REENGAGEMENT_EMAIL_RATE_LIMIT_DAYS,
     MIN_STREAK_FOR_REMINDER,
 )
+
+# Module-level service imports for patching support in tests
+from services.sns_svc import call_contact  # noqa: F401 — imported for test mock injection
+from services.sns_svc import send_sms
+from services.push_svc import send_push
+from services.email_svc import _send_email
 
 celery_app = Celery("stillhere", broker=settings.celery_broker)
 celery_app.conf.timezone = "UTC"
@@ -200,6 +207,51 @@ def check_user_grace(user_id: str, escalation_event_id: str):
 
 
 @celery_app.task
+def notify_contacts_call(user_id: str, escalation_event_id: str):
+    """Make welfare check calls to contacts after SMS has been sent.
+
+    Called with a delay after escalate_to_contacts sends SMS/emails.
+    Exits early if escalation is already resolved or contacts confirmed majority.
+    """
+    from db import get_contacts
+
+    db = _db()
+    try:
+        evt = db.execute(
+            text("SELECT resolved, stage FROM escalation_events WHERE id::text = :eid"),
+            {"eid": escalation_event_id},
+        ).mappings().first()
+        if not evt or evt["resolved"]:
+            return
+        # Don't call if contacts already reached majority confirmation
+        confirmed_row = db.execute(
+            text("SELECT COUNT(*) FROM contact_confirmations WHERE escalation_event_id::text = :eid AND confirmed_at IS NOT NULL"),
+            {"eid": escalation_event_id},
+        ).first()
+        confirmed = confirmed_row[0] if confirmed_row else 0
+        total_row = db.execute(
+            text("SELECT COUNT(*) FROM emergency_contacts WHERE user_id::text = :uid"),
+            {"uid": user_id},
+        ).first()
+        total = total_row[0] if total_row else 0
+        majority = math.ceil(total / 2)
+        if confirmed >= majority:
+            return
+        user = db.execute(
+            text("SELECT name FROM users WHERE id::text = :uid"),
+            {"uid": user_id},
+        ).mappings().first()
+        u = dict(user) if user else {}
+        user_name = u.get("name", "Someone")
+        contacts = get_contacts(db, user_id)
+        for c in contacts:
+            if c.get("phone"):
+                call_contact(c["phone"], user_name)
+    finally:
+        db.close()
+
+
+@celery_app.task
 def escalate_to_contacts(user_id: str, escalation_event_id: str):
     from db import get_contacts
     from services.sns_svc import send_sms
@@ -243,10 +295,10 @@ def escalate_to_contacts(user_id: str, escalation_event_id: str):
                     f"Emergency: {user_name} missed their check-in",
                     email_html,
                 )
-        from services.sns_svc import call_contact
-        for c in contacts:
-            if c.get("phone"):
-                call_contact(c["phone"], user_name)
+        notify_contacts_call.apply_async(
+            args=[user_id, escalation_event_id],
+            countdown=CONTACT_CALL_DELAY_SECONDS,
+        )
         if u.get("device_token"):
             send_push(u["device_token"], "Contacts Notified", "We've notified your emergency contacts.", settings.base_url)
         db.execute(

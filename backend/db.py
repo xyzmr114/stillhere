@@ -1123,6 +1123,46 @@ def delete_user_account(db, user_id: str):
     db.commit()
 
 
+# ── Deletion Tokens ─────────────────────────────────────────────────────────────
+
+
+def create_deletion_token(db, user_id: str, token: str, expires_at: datetime) -> str:
+    """Create a deletion token for a user, invalidating any previous ones."""
+    uid = user_id
+    # Invalidate any existing unused tokens for this user
+    db.execute(
+        text("DELETE FROM deletion_tokens WHERE user_id::text = :uid AND used_at IS NULL"),
+        {"uid": uid},
+    )
+    result = db.execute(
+        text(
+            "INSERT INTO deletion_tokens (user_id, token, expires_at) "
+            "VALUES (:uid, :token, :expires_at) RETURNING id"
+        ),
+        {"uid": uid, "token": token, "expires_at": expires_at},
+    ).first()
+    db.commit()
+    return str(result[0])
+
+
+def get_deletion_token(db, token: str):
+    """Get a deletion token record if it exists."""
+    row = db.execute(
+        text("SELECT * FROM deletion_tokens WHERE token = :token"),
+        {"token": token},
+    ).mappings().first()
+    return dict(row) if row else None
+
+
+def mark_deletion_token_used(db, token: str):
+    """Mark a deletion token as used."""
+    db.execute(
+        text("UPDATE deletion_tokens SET used_at = NOW() WHERE token = :token"),
+        {"token": token},
+    )
+    db.commit()
+
+
 # ── Non-emergency number lookup ──────────────────────────────────────────────
 
 
