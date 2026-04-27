@@ -113,7 +113,7 @@ Mobile: Capacitor (iOS + Android — wraps existing frontend, no rewrite)
 - [x] Privacy policy says 30-day deletion delay, code deletes immediately — reconcile — updated privacy.html to say deletion is immediate upon confirmation link click
 - [x] Weekly digest sends to expired trial users (add `has_paid OR trial_ends_at > NOW()` filter)
 - [x] No notice to contacts when removed from someone's network
-- [ ] Onboarding overlay race condition with contact card loading
+- [x] Onboarding overlay race condition with contact card loading
 - [ ] Non-emergency numbers database — seed/expand beyond initial set
 
 ### Short-term
