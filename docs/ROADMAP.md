@@ -96,9 +96,8 @@ Mobile: Capacitor (iOS + Android — wraps existing frontend, no rewrite)
 - [x] Escalation resolved notice to contacts — contact gets scary "missed check-in" alert, user checks in, contact never hears back ✅
 - [x] `/signin?verified=1` shows no feedback — email verification redirect lands silently ✅
 - [x] Email change support — no `email` field in `UserPatch`, users can't update their email
-- [ ] Account deletion confirmation email + notice to contacts
-- [ ] Contact SMS + voice call timing — currently fire simultaneously, should be SMS first with delay before call
-- [ ] Remove fake retry count/interval UI or implement actual retry logic
+- [x] Account deletion confirmation email + notice to contacts — POST /users/me/delete/request sends 1h expiry token email; GET /users/me/delete/confirm/{token} validates, deletes account, notifies contacts via SMS+email
+- [x] Contact SMS + voice call timing — contacts SMS/email fire immediately, voice call fires 60s later via notify_contacts_call Celery task
 - [ ] Stripe go-live — `sk_test_` to `sk_live_`, wire webhook in Stripe dashboard
 
 ### Twilio TFV — resubmit (April 2026)
