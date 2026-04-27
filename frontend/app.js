@@ -1848,9 +1848,11 @@ async function obSaveContact() {
             body: JSON.stringify({ name, phone, email: email || null }),
         });
         document.getElementById("ob-done-contact").textContent = `✓ ${name} added as your emergency contact`;
-        await loadContacts();
+        // Advance step 4 immediately so overlay updates before contacts reload
         _obStep = 4;
         obRender();
+        // Reload contacts without await — list clears/rebuilds behind the hidden overlay
+        loadContacts();
     } catch (e) {
         errEl.textContent = e.message;
     }
