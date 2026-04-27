@@ -120,7 +120,7 @@ Mobile: Capacitor (iOS + Android — wraps existing frontend, no rewrite)
 - [ ] iOS app submission (App Store Connect, bundle ID, signing, splash/icon assets)
 - [ ] Android app submission (Google Play Console, google-services.json)
 - [ ] Push notification plugin for native (`@capacitor/push-notifications`)
-- [ ] Data export endpoint (`/users/me/export`) for GDPR
+- [x] Data export endpoint (`GET /users/me/export`) for GDPR — backend/routes/users.py + 7 tests
 - [ ] Payment polling fallback if webhook is slow (support link instead of infinite reload)
 
 ### Self-hosting polish

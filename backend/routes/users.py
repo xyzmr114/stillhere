@@ -174,6 +174,74 @@ def get_me(user=Depends(get_current_user)):
     return user
 
 
+@router.get("/me/export")
+def export_user_data(user=Depends(get_current_user), db=Depends(get_session)):
+    user_id = str(user["id"])
+    try:
+        profile = dict(user)
+        profile.pop("password_hash", None)
+        profile.pop("token_version", None)
+        profile.pop("device_token", None)
+
+        checkins = db.execute(
+            text(
+                "SELECT id, created_at, note, status, streak "
+                "FROM checkins WHERE user_id = :uid "
+                "ORDER BY created_at DESC LIMIT 1000"
+            ),
+            {"uid": user_id},
+        ).mappings().all()
+
+        contacts = db.execute(
+            text(
+                "SELECT id, name, relationship, priority "
+                "FROM contacts WHERE user_id = :uid "
+                "ORDER BY priority ASC"
+            ),
+            {"uid": user_id},
+        ).mappings().all()
+
+        audit = db.execute(
+            text(
+                "SELECT id, event, created_at, details "
+                "FROM audit_log WHERE user_id = :uid "
+                "ORDER BY created_at DESC LIMIT 500"
+            ),
+            {"uid": user_id},
+        ).mappings().all()
+
+        groups = db.execute(
+            text(
+                "SELECT g.id, g.name, g.type, gm.role as my_role "
+                "FROM groups g "
+                "JOIN group_members gm ON gm.group_id = g.id "
+                "WHERE gm.user_id = :uid "
+                "ORDER BY g.name"
+            ),
+            {"uid": user_id},
+        ).mappings().all()
+
+        export_data = {
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "user": profile,
+            "checkins": [dict(r) for r in checkins],
+            "contacts": [dict(r) for r in contacts],
+            "audit_log": [dict(r) for r in audit],
+            "groups": [dict(r) for r in groups],
+            "notification_settings": {
+                "notify_push": user.get("notify_push") if user.get("notify_push") is not None else True,
+                "notify_email": user.get("notify_email") if user.get("notify_email") is not None else True,
+                "notify_sms": user.get("notify_sms") if user.get("notify_sms") is not None else True,
+                "quiet_hours_start": user.get("quiet_hours_start"),
+                "quiet_hours_end": user.get("quiet_hours_end"),
+            },
+        }
+        return export_data
+    except Exception:
+        logger.exception("Failed to export data for user %s", user_id)
+        raise HTTPException(status_code=500, detail="Failed to export data")
+
+
 @router.patch("/me")
 def update_me(body: UserPatch, user=Depends(get_current_user), db=Depends(get_session)):
     raw = body.model_dump(exclude_unset=True)
