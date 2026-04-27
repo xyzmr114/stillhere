@@ -303,7 +303,7 @@ def step_grace_expire():
             })
         log_audit_event(db, uid, "contacts_alerted")
         db.commit()
-        if settings.demo_sms_to:
+        if settings.demo_sms_to and contact_list:
             sms_body = f"Hi {contact_list[0]['name']}, Alice missed their check-in. Are they safe? Confirm: {settings.base_url}/confirm/{contact_list[0]['token']}"
             send_sms(settings.demo_sms_to, sms_body)
         return {"step": "grace_expire", "contacts": contact_list, "message": "Grace period expired. SMS sent to all emergency contacts."}
