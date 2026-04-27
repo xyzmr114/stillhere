@@ -110,7 +110,7 @@ Mobile: Capacitor (iOS + Android — wraps existing frontend, no rewrite)
 
 ### Medium — should fix
 - [x] No "escalation cancelled" notice to contacts on false alarm — contacts receive all-clear SMS + email via notify_contacts_all_clear when user checks in after escalation
-- [ ] Privacy policy says 30-day deletion delay, code deletes immediately — reconcile
+- [x] Privacy policy says 30-day deletion delay, code deletes immediately — reconcile — updated privacy.html to say deletion is immediate upon confirmation link click
 - [x] Weekly digest sends to expired trial users (add `has_paid OR trial_ends_at > NOW()` filter)
 - [ ] No notice to contacts when removed from someone's network
 - [ ] Onboarding overlay race condition with contact card loading
