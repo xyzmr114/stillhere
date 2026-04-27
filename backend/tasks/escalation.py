@@ -806,3 +806,52 @@ celery_app.conf.beat_schedule = {
         "schedule": crontab(hour="10", minute="0"),
     },
 }
+
+
+@celery_app.task
+def contact_removed(user_id: str, contact_name: str, contact_email: str | None, contact_phone: str | None):
+    """Notify a contact that they have been removed from a user's safety network.
+
+    Sends email and/or SMS notification to the contact. Failures are logged but
+    do not raise exceptions — this is fire-and-forget.
+
+    Args:
+        user_id: ID of the user who removed the contact
+        contact_name: Name of the removed contact
+        contact_email: Email address of the contact (optional)
+        contact_phone: Phone number of the contact (optional)
+    """
+    import logging
+    from services.sns_svc import send_sms
+    from services.email_svc import send_contact_removed_email
+
+    logger = logging.getLogger(__name__)
+
+    # Get user's name for the notification
+    user_name = "Someone"
+    try:
+        user_row = _db().execute(
+            text("SELECT name FROM users WHERE id::text = :uid"),
+            {"uid": user_id},
+        ).mappings().first()
+        if user_row:
+            user_name = user_row.get("name") or user_name
+    except Exception:
+        logger.exception("Failed to fetch user name for contact_removed notification")
+
+    # Send email if we have an email address
+    if contact_email:
+        try:
+            send_contact_removed_email(contact_email, contact_name, user_name)
+            logger.info("Sent contact_removed email to %s", contact_email)
+        except Exception:
+            logger.exception("Failed to send contact_removed email to %s", contact_email)
+
+    # Send SMS if we have a phone number
+    if contact_phone:
+        try:
+            sms_body = f"You've been removed from {user_name}'s Still Here safety network. You'll no longer receive check-in alerts for them."
+            send_sms(contact_phone, sms_body)
+            logger.info("Sent contact_removed SMS to %s", contact_phone)
+        except Exception:
+            logger.exception("Failed to send contact_removed SMS to %s", contact_phone)

@@ -121,6 +121,15 @@ def add_contact(db, user_id: str, name: str, phone: str, email: str = None, prio
 _ALLOWED_CONTACT_COLUMNS = {"name", "phone", "email", "priority"}
 
 
+def get_contact(db, contact_id: str, user_id: str):
+    """Get a single contact by ID and user_id."""
+    row = db.execute(
+        text("SELECT * FROM emergency_contacts WHERE id = :cid AND user_id = :uid"),
+        {"cid": contact_id, "uid": user_id},
+    ).mappings().first()
+    return dict(row) if row else None
+
+
 def update_contact(db, contact_id: str, user_id: str, **fields):
     safe_fields = {k: v for k, v in fields.items() if k in _ALLOWED_CONTACT_COLUMNS}
     if not safe_fields:

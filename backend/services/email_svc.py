@@ -205,3 +205,10 @@ def send_user_left_notification_email(to_email: str, contact_name: str, user_nam
     from email_templates import user_left_notification
     html = user_left_notification(contact_name, user_name)
     return _send_email(to_email, f"{user_name} has left Still Here", html)
+
+
+def send_contact_removed_email(to_email: str, contact_name: str, user_name: str):
+    """Notify contact that they have been removed from a user's safety network."""
+    from email_templates import contact_removed_notification
+    html = contact_removed_notification(contact_name, user_name)
+    return _send_email(to_email, f"You've been removed from {user_name}'s Still Here network", html)

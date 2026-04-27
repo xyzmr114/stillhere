@@ -377,3 +377,21 @@ def user_left_notification(contact_name: str, user_name: str) -> str:
     <p style="font-size:13px;color:{EMAIL_TEXT_SECONDARY};line-height:1.7;margin:0 0 24px">This means their daily check-ins have stopped, and you will no longer receive alerts on their behalf.</p>
     <p style="font-size:12px;color:{EMAIL_TEXT_TERTIARY};line-height:1.6">If you believe this was done in error, you can reach out to {user_name} directly.</p>"""
     return base_email(content)
+
+
+def contact_removed_notification(contact_name: str, user_name: str) -> str:
+    """
+    Notification sent to an emergency contact when they are removed from a user's network.
+
+    Args:
+        contact_name: Contact's display name
+        user_name: Name of the user who removed them
+
+    Returns:
+        HTML email content
+    """
+    content = f"""<h1 style="font-size:22px;font-weight:700;color:{EMAIL_TEXT_PRIMARY};margin:0 0 12px">You've been removed from a network</h1>
+    <p style="font-size:14px;color:{EMAIL_TEXT_SECONDARY};line-height:1.6;margin:0 0 28px">Hi {contact_name}, you've been removed from {user_name}'s Still Here safety network.</p>
+    <p style="font-size:13px;color:{EMAIL_TEXT_SECONDARY};line-height:1.7;margin:0 0 24px">You will no longer receive check-in alerts or emergency notifications on their behalf.</p>
+    <p style="font-size:12px;color:{EMAIL_TEXT_TERTIARY};line-height:1.6">If you believe this was done in error, you can reach out to {user_name} directly.</p>"""
+    return base_email(content)

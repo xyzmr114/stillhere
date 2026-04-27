@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from db import get_session, get_contacts, add_contact, update_contact, delete_contact, create_portal_token
+from db import get_session, get_contacts, add_contact, update_contact, delete_contact, create_portal_token, get_contact
 from dependencies import get_current_user
 from limiter import limiter
 
@@ -68,7 +68,22 @@ def patch_contact(contact_id: str, body: ContactPatch, user=Depends(get_current_
 
 @router.delete("/{contact_id}")
 def remove_contact(contact_id: str, user=Depends(get_current_user), db=Depends(get_session)):
-    delete_contact(db, contact_id, str(user["id"]))
+    uid = str(user["id"])
+    # Get contact details before deletion for notification
+    contact = get_contact(db, contact_id, uid)
+    if contact:
+        # Fire-and-forget notification task — delete happens regardless
+        try:
+            from tasks.escalation import contact_removed
+            contact_removed.delay(
+                user_id=uid,
+                contact_name=contact["name"],
+                contact_email=contact.get("email"),
+                contact_phone=contact.get("phone"),
+            )
+        except Exception:
+            logger.exception("Failed to queue contact_removed notification for contact %s", contact_id)
+    delete_contact(db, contact_id, uid)
     return {"message": "Contact deleted"}
 
 
