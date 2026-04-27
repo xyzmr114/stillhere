@@ -111,7 +111,7 @@ Mobile: Capacitor (iOS + Android — wraps existing frontend, no rewrite)
 ### Medium — should fix
 - [ ] No "escalation cancelled" notice to contacts on false alarm
 - [ ] Privacy policy says 30-day deletion delay, code deletes immediately — reconcile
-- [ ] Weekly digest sends to expired trial users (add `has_paid OR trial_ends_at > NOW()` filter)
+- [x] Weekly digest sends to expired trial users (add `has_paid OR trial_ends_at > NOW()` filter)
 - [ ] No notice to contacts when removed from someone's network
 - [ ] Onboarding overlay race condition with contact card loading
 - [ ] Non-emergency numbers database — seed/expand beyond initial set

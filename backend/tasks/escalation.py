@@ -507,7 +507,7 @@ def send_weekly_digest():
         now = datetime.now(timezone.utc)
         week_ago = now - timedelta(days=7)
         rows = db.execute(
-            text("SELECT id, email, name FROM users WHERE created_at < :week_ago AND (notify_weekly_digest IS NULL OR notify_weekly_digest = TRUE)"),
+            text("SELECT id, email, name FROM users WHERE created_at < :week_ago AND (notify_weekly_digest IS NULL OR notify_weekly_digest = TRUE) AND (has_paid = TRUE OR trial_ends_at > NOW())"),
             {"week_ago": week_ago},
         ).mappings().all()
         for user in rows:
