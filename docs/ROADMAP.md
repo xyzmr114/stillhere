@@ -109,7 +109,7 @@ Mobile: Capacitor (iOS + Android — wraps existing frontend, no rewrite)
 - [ ] After fixing business name on TFV form, resubmit
 
 ### Medium — should fix
-- [ ] No "escalation cancelled" notice to contacts on false alarm
+- [x] No "escalation cancelled" notice to contacts on false alarm — contacts receive all-clear SMS + email via notify_contacts_all_clear when user checks in after escalation
 - [ ] Privacy policy says 30-day deletion delay, code deletes immediately — reconcile
 - [x] Weekly digest sends to expired trial users (add `has_paid OR trial_ends_at > NOW()` filter)
 - [ ] No notice to contacts when removed from someone's network
